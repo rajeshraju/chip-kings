@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#0f0f17">
+  <title>Chip Kings</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0f0f17;
+      --bg-elevated: #171722;
+      --bg-card: #1c1c2a;
+      --bg-subtle: #232334;
+      --border: #2a2a3d;
+      --border-strong: #3a3a52;
+      --text: #f1f1f7;
+      --text-muted: #9797b5;
+      --text-dim: #6b6b85;
+      --accent: #7c5cff;
+      --accent-hover: #6d4dff;
+      --accent-soft: rgba(124, 92, 255, 0.12);
+      --success: #22c55e;
+      --success-soft: rgba(34, 197, 94, 0.12);
+      --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.12);
+      --warning: #f59e0b;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="light"] {
+      --bg: #f7f7fb;
+      --bg-elevated: #ffffff;
+      --bg-card: #ffffff;
+      --bg-subtle: #f1f1f7;
+      --border: #e5e5ef;
+      --border-strong: #d4d4e0;
+      --text: #1a1a2e;
+      --text-muted: #5a5a7a;
+      --text-dim: #8b8ba3;
+      --accent: #6d4dff;
+      --accent-hover: #5a3eff;
+      --accent-soft: rgba(109, 77, 255, 0.08);
+      --success: #16a34a;
+      --success-soft: rgba(22, 163, 74, 0.1);
+      --danger: #dc2626;
+      --danger-soft: rgba(220, 38, 38, 0.1);
+      --shadow: 0 10px 40px rgba(17, 17, 40, 0.08);
+      --shadow-sm: 0 1px 3px rgba(17, 17, 40, 0.06);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 20px 80px;
+      font-size: 15px;
+      line-height: 1.5;
+      letter-spacing: -0.01em;
+      transition: background var(--transition), color var(--transition);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(124, 92, 255, 0.15), transparent 40%),
+        radial-gradient(circle at 85% 90%, rgba(34, 197, 94, 0.08), transparent 40%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    [data-theme="light"] body::before {
+      background:
+        radial-gradient(circle at 15% 10%, rgba(109, 77, 255, 0.08), transparent 40%),
+        radial-gradient(circle at 85% 90%, rgba(22, 163, 74, 0.05), transparent 40%);
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #b388ff);
+      display: grid;
+      place-items: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      color: white;
+      font-size: 18px;
+      box-shadow: 0 6px 20px rgba(124, 92, 255, 0.35);
+    }
+
+    .brand-text h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .brand-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all var(--transition);
+      font-size: 16px;
+    }
+
+    .icon-btn:hover { background: var(--bg-subtle); color: var(--text); border-color: var(--border-strong); }
+    .icon-btn:active { transform: scale(0.96); }
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-elevated);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-sm); }
+    .tab .count {
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 1px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+      transition: border-color var(--transition);
+    }
+
+    .card-header {
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      min-height: 56px;
+    }
+
+    .card-header h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-toggle {
+      color: var(--text-dim);
+      font-size: 12px;
+      transition: transform var(--transition);
+    }
+    .section-toggle.collapsed { transform: rotate(-90deg); }
+
+    .card-body {
+      padding: 0 20px 20px;
+      max-height: 5000px;
+      opacity: 1;
+      transition: max-height var(--transition), opacity var(--transition), padding var(--transition);
+      overflow: hidden;
+    }
+    .card-body.collapsed { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
+
+    /* Forms */
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .field-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+      .field-grid.cols-3 { grid-template-columns: 1.2fr 1fr 1fr; }
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-family: inherit;
+      color: var(--text);
+      transition: all var(--transition);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input::placeholder, textarea::placeholder { color: var(--text-dim); }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    input[type="number"] { font-family: 'JetBrains Mono', monospace; font-size: 15px; }
+
+    select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%239797b5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 40px;
+    }
+
+    [data-theme="light"] select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%238b8ba3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 18px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      min-height: 44px;
+      transition: all var(--transition);
+      -webkit-appearance: none;
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-soft); }
+    .btn:active { transform: translateY(0); }
+
+    .btn.secondary {
+      background: var(--bg-elevated);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn.secondary:hover { background: var(--bg-subtle); border-color: var(--border-strong); box-shadow: none; }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .btn.ghost:hover { background: var(--bg-subtle); color: var(--text); box-shadow: none; }
+
+    .btn.success { background: var(--success); }
+    .btn.success:hover { background: #16a34a; box-shadow: 0 6px 20px var(--success-soft); }
+
+    .btn.danger { background: var(--danger); }
+    .btn.danger:hover { background: #dc2626; box-shadow: 0 6px 20px var(--danger-soft); }
+
+    .btn.small { padding: 8px 12px; font-size: 13px; min-height: 36px; }
+    .btn.full { width: 100%; }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* POT section */
+    .pot-card {
+      background: linear-gradient(135deg, var(--accent-soft), transparent);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin: 16px 0;
+    }
+
+    .pot-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .pot-header .pot-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* People list */
+    .people-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+
+    .person-item {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.25s ease-out;
+      transition: border-color var(--transition);
+    }
+
+    .person-item:hover { border-color: var(--border-strong); }
+    .person-item.pot-row { background: var(--accent-soft); border-color: var(--accent); }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .person-info { flex: 1; min-width: 0; }
+    .person-name {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .person-earnings {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .chip.win { background: var(--success-soft); color: var(--success); }
+    .chip.loss { background: var(--danger-soft); color: var(--danger); }
+    .chip.neutral { background: var(--bg-subtle); color: var(--text-muted); }
+
+    .btn-group { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* Results */
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .summary-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-value.positive { color: var(--success); }
+    .stat-value.negative { color: var(--danger); }
+
+    .transactions-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .transaction-item {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .transaction-flow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .transaction-flow strong { font-weight: 600; }
+    .transaction-arrow { color: var(--text-dim); font-size: 12px; }
+
+    .amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .alert {
+      display: flex;
+      align-items: start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .alert.success { background: var(--success-soft); color: var(--success); }
+    .alert.warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+
+    .empty-state {
+      text-align: center;
+      color: var(--text-dim);
+      padding: 32px 20px;
+      font-size: 14px;
+    }
+
+    .empty-state .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
+
+    /* Reports */
+    .report-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .report-item:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+
+    .report-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .report-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .report-date {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .report-stats {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .report-stat { display: flex; align-items: center; gap: 4px; }
+
+    .report-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* View */
+    .view { display: none; }
+    .view.active { display: block; animation: fadeIn 0.25s ease-out; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.show { display: flex; animation: fadeIn 0.2s; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 520px;
+      width: 100%;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: var(--shadow);
+      z-index: 200;
+      opacity: 0;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); }
+
+    @media (max-width: 640px) {
+      body { padding: 16px 14px 60px; }
+      .app-header { margin-bottom: 20px; }
+      .brand-mark { width: 36px; height: 36px; font-size: 16px; }
+      .brand-text h1 { font-size: 19px; }
+      .brand-text p { font-size: 12px; }
+      .card-header { padding: 16px; }
+      .card-body { padding: 0 16px 16px; }
+      .btn-row { flex-direction: column; }
+      .btn-row .btn { width: 100%; }
+      .person-item { flex-direction: column; align-items: stretch; }
+      .btn-group { justify-content: flex-end; }
+      .tab { font-size: 13px; padding: 9px 10px; }
+      .tab .tab-label { display: none; }
+      .tab .tab-label-full { display: inline; }
+    }
+
+    @media (min-width: 641px) {
+      .tab .tab-label-full { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">♠</div>
+        <div class="brand-text">
+          <h1>Chip Kings</h1>
+          <p>Poker settlement &amp; reporting</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIcon">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="calculator" role="tab">
+        <span>🧮</span>
+        <span class="tab-label-full">Calculator</span>
+        <span class="tab-label">Calculator</span>
+      </button>
+      <button class="tab" data-view="reports" role="tab">
+        <span>📁</span>
+        <span class="tab-label-full">Reports</span>
+        <span class="tab-label">Reports</span>
+        <span class="count" id="reportCount">0</span>
+      </button>
+    </nav>
+
+    <!-- Calculator View -->
+    <section class="view active" id="calculatorView">
+      <div class="card">
+        <div class="card-header" data-target="inputSection">
+          <h2><span class="section-toggle" id="inputSectionToggle">▾</span> Players</h2>
+        </div>
+        <div class="card-body" id="inputSection">
+          <div class="field-grid cols-2">
+            <div>
+              <label for="personDropdown">Quick Select</label>
+              <select id="personDropdown" onchange="selectPerson()">
+                <option value="">Choose a name…</option>
+              </select>
+            </div>
+            <div>
+              <label for="personName">Name</label>
+              <input type="text" id="personName" placeholder="Enter name" autocomplete="off" />
+            </div>
+          </div>
+          <div class="field-grid cols-2">
+            <div>
+              <label for="personEarnings">Winnings / Losses</label>
+              <input type="number" id="personEarnings" placeholder="e.g. 150 or -80" step="0.01" inputmode="decimal" />
+            </div>
+            <div>
+              <label for="personExpenses">Expenses</label>
+              <input type="number" id="personExpenses" placeholder="Optional" step="0.01" inputmode="decimal" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button id="addUpdateBtn" class="btn" type="button" onclick="addPerson()">Add Player</button>
+            <button id="cancelBtn" class="btn secondary" type="button" style="display:none" onclick="cancelEdit()">Cancel</button>
+          </div>
+
+          <div class="pot-card">
+            <div class="pot-header">
+              <span class="pot-badge">💰 POT</span>
+            </div>
+            <div class="field-grid cols-2">
+              <div>
+                <label for="potAmount">POT Amount</label>
+                <input type="number" id="potAmount" placeholder="Winnings/Losses" step="0.01" inputmode="decimal" />
+              </div>
+              <div>
+                <label for="potExpenses">POT Expenses (auto)</label>
+                <input type="number" id="potExpenses" placeholder="0.00" step="0.01" readonly />
+              </div>
+            </div>
+            <button id="potBtn" class="btn success" type="button" onclick="addPot()">Add / Update POT</button>
+          </div>
+
+          <div class="people-list" id="peopleList"></div>
+
+          <div class="btn-row" style="margin-top: 20px;">
+            <button class="btn full" id="calcBtn" type="button" onclick="calculatePayments()">Calculate Payments</button>
+            <button class="btn secondary" id="clearBtn" type="button" onclick="clearAll()">Clear All</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" data-target="calculateSection">
+          <h2><span class="section-toggle" id="calculateSectionToggle">▾</span> Results</h2>
+        </div>
+        <div class="card-body" id="calculateSection">
+          <div id="results" style="display:none">
+            <div class="summary-card" id="summary"></div>
+            <div class="summary-card">
+              <div class="summary-title" id="transactionsTitle">💸 Settlement Instructions</div>
+              <div class="transactions-list" id="transactionsList"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn full" id="saveReportBtn" type="button" onclick="saveReport()">💾 Save to Reports</button>
+            </div>
+          </div>
+          <div id="noResults" class="empty-state">
+            <span class="emoji">🎲</span>
+            Add players and calculate to see settlements
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Reports View -->
+    <section class="view" id="reportsView">
+      <div class="card">
+        <div class="card-header" style="cursor: default;">
+          <h2>📁 Saved Reports</h2>
+          <button class="btn ghost small" onclick="exportReports()" id="exportBtn" title="Export all reports as JSON">⬇ Export</button>
+        </div>
+        <div class="card-body">
+          <div id="reportsList"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Report Detail Modal -->
+  <div class="modal-backdrop" id="reportModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">Report</div>
+        <button class="icon-btn" onclick="closeModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn ghost" onclick="closeModal()">Close</button>
+        <button class="btn danger" id="deleteReportBtn" onclick="deleteCurrentReport()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ----------- State -----------
+    let people = [];
+    let editingIndex = -1;
+    let currentReportId = null;
+    const REPORTS_KEY = 'chip-kings-reports';
+    const THEME_KEY = 'chip-kings-theme';
+    const DRAFT_KEY = 'chip-kings-draft';
+
+    // ----------- Theme -----------
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      const icon = document.getElementById('themeIcon');
+      if (theme === 'light') {
+        icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      } else {
+        icon.innerHTML = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+      }
+    }
+    function initTheme() {
+      const saved = localStorage.getItem(THEME_KEY) || 'dark';
+      applyTheme(saved);
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+      localStorage.setItem(THEME_KEY, next);
+    }
+
+    // ----------- Helpers -----------
+    function roundToDollar(amount) {
+      if (amount === null || amount === undefined || isNaN(amount)) return 0;
+      return Math.round(parseFloat(amount));
+    }
+    function formatDollar(amount) {
+      return roundToDollar(amount).toLocaleString('en-US');
+    }
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
+    }
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+    function showToast(message, kind) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast show' + (kind ? ' ' + kind : '');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => { toast.className = 'toast'; }, 2400);
+    }
+
+    // ----------- Dropdown -----------
+    const personNames = [
+      'Aravind','Chiru','Danthuluri','Eshwar','Kishore','Krishna','Mahesh',
+      'Patange','Prafulla','Rajesh','Ranjith','Ravindra','Sandeep',
+      'Srikanth','Surya','Varahalu','Vamsi'
+    ];
+
+    function populatePersonDropdown() {
+      const dropdown = document.getElementById('personDropdown');
+      while (dropdown.options.length > 1) dropdown.remove(1);
+      personNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        dropdown.appendChild(option);
+      });
+    }
+
+    function selectPerson() {
+      const dropdown = document.getElementById('personDropdown');
+      const nameInput = document.getElementById('personName');
+      const earningsInput = document.getElementById('personEarnings');
+      const selectedName = dropdown.value;
+      if (!selectedName) return;
+      nameInput.value = selectedName;
+      dropdown.value = '';
+      if (earningsInput) earningsInput.focus();
+    }
+
+    // ----------- POT logic -----------
+    function updatePotExpenses() {
+      const totalPersonExpenses = people.reduce((sum, p) => {
+        if ((p.name || '').toUpperCase() !== 'POT') return sum + (p.expenses || 0);
+        return sum;
+      }, 0);
+      const el = document.getElementById('potExpenses');
+      if (el) el.value = totalPersonExpenses.toFixed(2);
+
+      // Update the POT row's expenses too if it exists
+      const potIdx = people.findIndex(p => (p.name || '').toUpperCase() === 'POT');
+      if (potIdx !== -1) people[potIdx].expenses = totalPersonExpenses;
+    }
+
+    function addPot() {
+      const potAmountInput = document.getElementById('potAmount');
+      const potExpensesInput = document.getElementById('potExpenses');
+      const potAmountStr = (potAmountInput.value || '').trim();
+      const potAmount = potAmountStr === '' ? NaN : parseFloat(potAmountStr);
+      const potExpenses = parseFloat(potExpensesInput.value) || 0;
+
+      if (isNaN(potAmount)) {
+        showToast('Please enter a valid POT amount', 'error');
+        potAmountInput.focus();
+        return;
+      }
+
+      const potIndex = people.findIndex(p => (p.name || '').toUpperCase() === 'POT');
+      if (potIndex !== -1) {
+        people[potIndex].earnings = potAmount;
+        people[potIndex].expenses = potExpenses;
+      } else {
+        people.push({ name: 'POT', earnings: potAmount, expenses: potExpenses });
+      }
+
+      potAmountInput.value = '';
+      potAmountInput.focus();
+      renderPeopleList();
+      updatePotExpenses();
+      hideResults();
+      saveDraft();
+    }
+
+    // ----------- Person CRUD -----------
+    function addPerson() {
+      const nameInput = document.getElementById('personName');
+      const earningsInput = document.getElementById('personEarnings');
+      const expensesInput = document.getElementById('personExpenses');
+      const name = (nameInput.value || '').trim();
+      const earningsStr = (earningsInput.value || '').trim();
+      const expensesStr = (expensesInput.value || '').trim();
+
+      if (!name) {
+        showToast('Enter a player name', 'error');
+        nameInput.focus();
+        return;
+      }
+
+      const earnings = earningsStr === '' ? 0 : parseFloat(earningsStr);
+      if (earningsStr !== '' && isNaN(earnings)) {
+        showToast('Enter a valid winnings/losses amount', 'error');
+        earningsInput.focus();
+        return;
+      }
+
+      const expenses = expensesStr === '' ? 0 : parseFloat(expensesStr);
+      if (expensesStr !== '' && (isNaN(expenses) || expenses < 0)) {
+        showToast('Expenses must be 0 or positive', 'error');
+        expensesInput.focus();
+        return;
+      }
+
+      if (editingIndex !== -1) {
+        people[editingIndex].name = name;
+        people[editingIndex].earnings = earnings;
+        people[editingIndex].expenses = expenses;
+        cancelEdit();
+      } else {
+        const existingIndex = people.findIndex(p => (p.name || '').toLowerCase() === name.toLowerCase());
+        if (existingIndex !== -1) {
+          people[existingIndex].earnings = earnings;
+          people[existingIndex].expenses = expenses;
+        } else {
+          people.push({ name, earnings, expenses });
+        }
+      }
+
+      nameInput.value = '';
+      earningsInput.value = '';
+      expensesInput.value = '';
+      nameInput.focus();
+
+      renderPeopleList();
+      updatePotExpenses();
+      hideResults();
+      saveDraft();
+    }
+
+    function editPerson(index) {
+      const person = people[index];
+      editingIndex = index;
+
+      if ((person.name || '').toUpperCase() === 'POT') {
+        document.getElementById('potAmount').value = person.earnings || '';
+        updatePotExpenses();
+        document.getElementById('potAmount').focus();
+        editingIndex = -1; // POT edits go through addPot
+      } else {
+        document.getElementById('personName').value = person.name || '';
+        document.getElementById('personEarnings').value = (person.earnings ?? '') === '' ? '' : person.earnings;
+        document.getElementById('personExpenses').value = (person.expenses ?? '') === '' ? '' : person.expenses;
+        document.getElementById('addUpdateBtn').textContent = 'Update Player';
+        document.getElementById('cancelBtn').style.display = 'inline-flex';
+        document.getElementById('personName').focus();
+      }
+    }
+
+    function cancelEdit() {
+      editingIndex = -1;
+      document.getElementById('personName').value = '';
+      document.getElementById('personEarnings').value = '';
+      document.getElementById('personExpenses').value = '';
+      document.getElementById('personDropdown').value = '';
+      document.getElementById('addUpdateBtn').textContent = 'Add Player';
+      document.getElementById('cancelBtn').style.display = 'none';
+    }
+
+    function removePerson(index) {
+      if (editingIndex === index) cancelEdit();
+      people.splice(index, 1);
+      renderPeopleList();
+      updatePotExpenses();
+      hideResults();
+      saveDraft();
+    }
+
+    function renderPeopleList() {
+      const list = document.getElementById('peopleList');
+      if (people.length === 0) {
+        list.innerHTML = '<div class="empty-state"><span class="emoji">👥</span>No players yet. Add someone above.</div>';
+        return;
+      }
+
+      list.innerHTML = people.map((person, index) => {
+        const earnings = parseFloat(person.earnings) || 0;
+        const expenses = parseFloat(person.expenses) || 0;
+        const isPot = (person.name || '').toUpperCase() === 'POT';
+        const isWin = earnings >= 0;
+        const netAmount = isPot ? (earnings - expenses) : (earnings + expenses);
+        const isNetWin = netAmount >= 0;
+
+        return `
+          <div class="person-item ${isPot ? 'pot-row' : ''}">
+            <div class="person-info">
+              <div class="person-name">${isPot ? '💰' : '👤'} ${escapeHtml(person.name || '')}</div>
+              <div class="person-earnings">
+                <span class="chip ${isWin ? 'win' : 'loss'}">${isWin ? '+' : '−'}$${formatDollar(Math.abs(earnings))}</span>
+                ${expenses > 0 ? `<span class="chip neutral">exp $${formatDollar(expenses)}</span>` : ''}
+                <span class="chip ${isNetWin ? 'win' : 'loss'}">net ${isNetWin ? '+' : '−'}$${formatDollar(Math.abs(netAmount))}</span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn secondary small" type="button" data-action="edit" data-index="${index}">Edit</button>
+              <button class="btn danger small" type="button" data-action="remove" data-index="${index}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ----------- Calculation -----------
+    let lastResult = null;
+
+    function calculatePayments() {
+      if (people.length < 2) {
+        showToast('Add at least 2 players', 'error');
+        return;
+      }
+
+      const netAmounts = people.map(person => {
+        if ((person.name || '').toUpperCase() === 'POT') {
+          return { name: person.name, net: (person.earnings || 0) - (person.expenses || 0) };
+        }
+        return { name: person.name, net: (person.earnings || 0) + (person.expenses || 0) };
+      });
+
+      const totalNet = netAmounts.reduce((sum, p) => sum + p.net, 0);
+      const averageNet = totalNet / people.length;
+      const differences = netAmounts.map(p => ({ name: p.name, difference: p.net - averageNet }));
+
+      const creditors = differences.filter(d => d.difference > 0.01).sort((a, b) => b.difference - a.difference);
+      const debtors = differences.filter(d => d.difference < -0.01).sort((a, b) => a.difference - b.difference);
+
+      const transactions = [];
+      let ci = 0, di = 0;
+      while (ci < creditors.length && di < debtors.length) {
+        const creditor = creditors[ci];
+        const debtor = debtors[di];
+        const amount = Math.min(creditor.difference, Math.abs(debtor.difference));
+        const roundedAmount = roundToDollar(amount);
+        if (roundedAmount > 0) {
+          transactions.push({ from: debtor.name, to: creditor.name, amount: roundedAmount });
+        }
+        creditor.difference -= amount;
+        debtor.difference += amount;
+        if (Math.abs(creditor.difference) < 0.01) ci++;
+        if (Math.abs(debtor.difference) < 0.01) di++;
+      }
+
+      const potPerson = people.find(p => (p.name || '').toUpperCase() === 'POT');
+      const potExpenses = potPerson ? (potPerson.expenses || 0) : 0;
+      const potEarnings = potPerson ? (potPerson.earnings || 0) : 0;
+      const potBalance = potEarnings - potExpenses;
+
+      lastResult = {
+        totalNet,
+        transactions,
+        potBalance,
+        potExpenses,
+        potEarnings,
+        hasPot: !!potPerson,
+        playerCount: people.filter(p => (p.name || '').toUpperCase() !== 'POT').length,
+        people: JSON.parse(JSON.stringify(people))
+      };
+
+      displayResults(lastResult);
+
+      const inputSection = document.getElementById('inputSection');
+      const inputToggle = document.getElementById('inputSectionToggle');
+      if (!inputSection.classList.contains('collapsed')) {
+        inputSection.classList.add('collapsed');
+        inputToggle.classList.add('collapsed');
+      }
+    }
+
+    function displayResults(r) {
+      const summary = document.getElementById('summary');
+      const txList = document.getElementById('transactionsList');
+      const txTitle = document.getElementById('transactionsTitle');
+      const resultsDiv = document.getElementById('results');
+      const noResults = document.getElementById('noResults');
+
+      const isBalanced = Math.abs(r.totalNet) < 0.01;
+
+      const potStat = r.hasPot ? `
+        <div class="stat">
+          <div class="stat-label">POT Balance</div>
+          <div class="stat-value ${r.potBalance >= 0 ? 'positive' : 'negative'}">
+            ${r.potBalance >= 0 ? '+' : '−'}$${formatDollar(Math.abs(r.potBalance))}
+          </div>
+        </div>` : '';
+
+      summary.innerHTML = `
+        <div class="summary-title">📊 Game Summary</div>
+        ${isBalanced
+          ? '<div class="alert success">✓ All balanced</div>'
+          : `<div class="alert warning">⚠ Differential: ${r.totalNet >= 0 ? '+' : '−'}$${formatDollar(Math.abs(r.totalNet))}</div>`}
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat-label">Players</div>
+            <div class="stat-value">${r.playerCount}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total Expenses</div>
+            <div class="stat-value">$${formatDollar(r.potExpenses)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Settlements</div>
+            <div class="stat-value">${r.transactions.length}</div>
+          </div>
+          ${potStat}
+        </div>
+      `;
+
+      if (r.transactions.length === 0) {
+        txTitle.textContent = '✅ All Settled';
+        txList.innerHTML = '<div class="empty-state">Everyone is even. No payments needed.</div>';
+      } else {
+        txTitle.textContent = '💸 Settlement Instructions';
+        txList.innerHTML = r.transactions.map(t => `
+          <div class="transaction-item">
+            <div class="transaction-flow">
+              <strong>${escapeHtml(t.from)}</strong>
+              <span class="transaction-arrow">→</span>
+              <strong>${escapeHtml(t.to)}</strong>
+            </div>
+            <span class="amount">$${formatDollar(t.amount)}</span>
+          </div>
+        `).join('');
+      }
+
+      resultsDiv.style.display = 'block';
+      noResults.style.display = 'none';
+    }
+
+    function hideResults() {
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('noResults').style.display = 'block';
+      lastResult = null;
+    }
+
+    function clearAll() {
+      if (!confirm('Clear all players and reset?')) return;
+      people = [];
+      renderPeopleList();
+      updatePotExpenses();
+      hideResults();
+      cancelEdit();
+      document.getElementById('potAmount').value = '';
+      localStorage.removeItem(DRAFT_KEY);
+    }
+
+    // ----------- Section toggling -----------
+    function toggleSection(sectionId) {
+      const content = document.getElementById(sectionId);
+      const toggle = document.getElementById(sectionId + 'Toggle');
+      if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        toggle.classList.remove('collapsed');
+      } else {
+        content.classList.add('collapsed');
+        toggle.classList.add('collapsed');
+      }
+    }
+
+    // ----------- Reports (local repository) -----------
+    function loadReports() {
+      try {
+        const raw = localStorage.getItem(REPORTS_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function persistReports(reports) {
+      localStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
+      updateReportCount();
+    }
+
+    function updateReportCount() {
+      const count = loadReports().length;
+      document.getElementById('reportCount').textContent = count;
+    }
+
+    function saveReport() {
+      if (!lastResult) { showToast('Calculate first', 'error'); return; }
+      const defaultTitle = `Game ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      const title = prompt('Name this game:', defaultTitle);
+      if (title === null) return;
+      const report = {
+        id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        title: (title || defaultTitle).trim() || defaultTitle,
+        createdAt: new Date().toISOString(),
+        snapshot: lastResult
+      };
+      const reports = loadReports();
+      reports.unshift(report);
+      persistReports(reports);
+      renderReports();
+      showToast('Report saved ✓', 'success');
+    }
+
+    function renderReports() {
+      const list = document.getElementById('reportsList');
+      const reports = loadReports();
+      updateReportCount();
+
+      if (reports.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <span class="emoji">📭</span>
+            No saved reports yet. Finish a calculation and tap "Save to Reports".
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = reports.map(r => {
+        const s = r.snapshot;
+        return `
+          <div class="report-item" data-id="${r.id}">
+            <div class="report-head">
+              <div>
+                <div class="report-title">${escapeHtml(r.title)}</div>
+                <div class="report-date">${formatDate(r.createdAt)}</div>
+              </div>
+            </div>
+            <div class="report-stats">
+              <span class="report-stat">👥 ${s.playerCount} players</span>
+              <span class="report-stat">💸 ${s.transactions.length} settlements</span>
+              ${s.hasPot ? `<span class="report-stat">💰 POT ${s.potBalance >= 0 ? '+' : '−'}$${formatDollar(Math.abs(s.potBalance))}</span>` : ''}
+            </div>
+            <div class="report-actions">
+              <button class="btn secondary small" data-report-action="view" data-id="${r.id}">👁 View</button>
+              <button class="btn secondary small" data-report-action="load" data-id="${r.id}">↺ Load</button>
+              <button class="btn danger small" data-report-action="delete" data-id="${r.id}">🗑 Delete</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function viewReport(id) {
+      const report = loadReports().find(r => r.id === id);
+      if (!report) return;
+      currentReportId = id;
+      const s = report.snapshot;
+
+      const playersHtml = s.people.map(p => {
+        const isPot = (p.name || '').toUpperCase() === 'POT';
+        const earnings = parseFloat(p.earnings) || 0;
+        const expenses = parseFloat(p.expenses) || 0;
+        const net = isPot ? earnings - expenses : earnings + expenses;
+        return `
+          <div class="person-item ${isPot ? 'pot-row' : ''}">
+            <div class="person-info">
+              <div class="person-name">${isPot ? '💰' : '👤'} ${escapeHtml(p.name)}</div>
+              <div class="person-earnings">
+                <span class="chip ${earnings >= 0 ? 'win' : 'loss'}">${earnings >= 0 ? '+' : '−'}$${formatDollar(Math.abs(earnings))}</span>
+                ${expenses > 0 ? `<span class="chip neutral">exp $${formatDollar(expenses)}</span>` : ''}
+                <span class="chip ${net >= 0 ? 'win' : 'loss'}">net ${net >= 0 ? '+' : '−'}$${formatDollar(Math.abs(net))}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      const txHtml = s.transactions.length === 0
+        ? '<div class="empty-state">All balanced</div>'
+        : s.transactions.map(t => `
+            <div class="transaction-item">
+              <div class="transaction-flow">
+                <strong>${escapeHtml(t.from)}</strong>
+                <span class="transaction-arrow">→</span>
+                <strong>${escapeHtml(t.to)}</strong>
+              </div>
+              <span class="amount">$${formatDollar(t.amount)}</span>
+            </div>
+          `).join('');
+
+      document.getElementById('modalTitle').textContent = report.title;
+      document.getElementById('modalBody').innerHTML = `
+        <div class="report-date" style="margin-bottom: 14px;">${formatDate(report.createdAt)}</div>
+        <div class="stat-grid" style="margin-bottom: 20px;">
+          <div class="stat"><div class="stat-label">Players</div><div class="stat-value">${s.playerCount}</div></div>
+          <div class="stat"><div class="stat-label">Expenses</div><div class="stat-value">$${formatDollar(s.potExpenses)}</div></div>
+          <div class="stat"><div class="stat-label">Settlements</div><div class="stat-value">${s.transactions.length}</div></div>
+          ${s.hasPot ? `<div class="stat"><div class="stat-label">POT Balance</div><div class="stat-value ${s.potBalance >= 0 ? 'positive' : 'negative'}">${s.potBalance >= 0 ? '+' : '−'}$${formatDollar(Math.abs(s.potBalance))}</div></div>` : ''}
+        </div>
+        <div class="summary-title" style="margin-bottom: 10px;">Players</div>
+        <div class="people-list" style="margin-bottom: 20px;">${playersHtml}</div>
+        <div class="summary-title" style="margin-bottom: 10px;">Settlements</div>
+        <div class="transactions-list">${txHtml}</div>
+      `;
+      document.getElementById('reportModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('reportModal').classList.remove('show');
+      currentReportId = null;
+    }
+
+    function deleteCurrentReport() {
+      if (!currentReportId) return;
+      if (!confirm('Delete this report permanently?')) return;
+      const reports = loadReports().filter(r => r.id !== currentReportId);
+      persistReports(reports);
+      closeModal();
+      renderReports();
+      showToast('Report deleted', 'success');
+    }
+
+    function deleteReport(id) {
+      if (!confirm('Delete this report permanently?')) return;
+      const reports = loadReports().filter(r => r.id !== id);
+      persistReports(reports);
+      renderReports();
+      showToast('Report deleted', 'success');
+    }
+
+    function loadReportIntoCalculator(id) {
+      const report = loadReports().find(r => r.id === id);
+      if (!report) return;
+      people = JSON.parse(JSON.stringify(report.snapshot.people));
+      switchView('calculator');
+      renderPeopleList();
+      updatePotExpenses();
+      hideResults();
+      // Expand input section
+      const inputSection = document.getElementById('inputSection');
+      const inputToggle = document.getElementById('inputSectionToggle');
+      inputSection.classList.remove('collapsed');
+      inputToggle.classList.remove('collapsed');
+      saveDraft();
+      showToast('Loaded into calculator', 'success');
+    }
+
+    function exportReports() {
+      const reports = loadReports();
+      if (reports.length === 0) { showToast('No reports to export', 'error'); return; }
+      const blob = new Blob([JSON.stringify(reports, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chip-kings-reports-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Exported ✓', 'success');
+    }
+
+    // ----------- Draft (auto-save current inputs) -----------
+    function saveDraft() {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(people));
+      } catch {}
+    }
+    function loadDraft() {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) people = JSON.parse(raw) || [];
+      } catch {
+        people = [];
+      }
+    }
+
+    // ----------- View switching -----------
+    function switchView(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(name + 'View').classList.add('active');
+      if (name === 'reports') renderReports();
+    }
+
+    // ----------- Event wiring -----------
+    function attachListeners() {
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => switchView(tab.dataset.view));
+      });
+
+      document.querySelectorAll('.card-header[data-target]').forEach(header => {
+        header.addEventListener('click', () => {
+          const target = header.getAttribute('data-target');
+          if (target) toggleSection(target);
+        });
+      });
+
+      // Person list actions (event delegation)
+      document.getElementById('peopleList').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const idx = parseInt(btn.getAttribute('data-index'), 10);
+        if (Number.isNaN(idx)) return;
+        const action = btn.getAttribute('data-action');
+        if (action === 'edit') editPerson(idx);
+        else if (action === 'remove') removePerson(idx);
+      });
+
+      // Reports list actions (event delegation)
+      document.getElementById('reportsList').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-report-action]');
+        if (!btn) {
+          const item = e.target.closest('.report-item');
+          if (item) viewReport(item.dataset.id);
+          return;
+        }
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const action = btn.getAttribute('data-report-action');
+        if (action === 'view') viewReport(id);
+        else if (action === 'load') loadReportIntoCalculator(id);
+        else if (action === 'delete') deleteReport(id);
+      });
+
+      // Close modal on backdrop click
+      document.getElementById('reportModal').addEventListener('click', (e) => {
+        if (e.target.id === 'reportModal') closeModal();
+      });
+
+      // Enter-key navigation
+      const wireEnter = (from, next, action) => {
+        const el = document.getElementById(from);
+        if (!el) return;
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (next) document.getElementById(next).focus();
+            else if (action) action();
+          }
+        });
+      };
+      wireEnter('personName', 'personEarnings');
+      wireEnter('personEarnings', 'personExpenses');
+      wireEnter('personExpenses', null, addPerson);
+      wireEnter('potAmount', null, addPot);
+
+      // Keyboard: ESC closes modal
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+      });
+    }
+
+    // ----------- Init -----------
+    function init() {
+      initTheme();
+      populatePersonDropdown();
+      loadDraft();
+      renderPeopleList();
+      updatePotExpenses();
+      renderReports();
+      attachListeners();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+    // Global exposure for inline handlers
+    window.selectPerson = selectPerson;
+    window.addPerson = addPerson;
+    window.addPot = addPot;
+    window.calculatePayments = calculatePayments;
+    window.clearAll = clearAll;
+    window.editPerson = editPerson;
+    window.removePerson = removePerson;
+    window.cancelEdit = cancelEdit;
+    window.toggleSection = toggleSection;
+    window.saveReport = saveReport;
+    window.exportReports = exportReports;
+    window.closeModal = closeModal;
+    window.deleteCurrentReport = deleteCurrentReport;
+  </script>
+</body>
+</html>
