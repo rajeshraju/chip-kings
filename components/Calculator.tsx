@@ -1,11 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { calculatePayments, isPot, sumPlayerExpenses } from "@/lib/calc";
 import type { CalculationResult, Person, Role } from "@/lib/types";
 import { PlayerRow } from "./PlayerRow";
 import { ResultsView } from "./ResultsView";
 import { toast } from "./Toaster";
+
+function parseIsoDate(s: string): Date | null {
+  const parts = s.split("-").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d);
+}
+
+function formatIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const PERSON_NAMES = [
   "Aravind", "Chiru", "Danthuluri", "Eshwar", "Kishore", "Krishna", "Mahesh",
@@ -15,12 +31,16 @@ const PERSON_NAMES = [
 
 const DRAFT_KEY = "chip-kings-draft";
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 type Props = { role: Role | null };
 
 export function Calculator({ role }: Props) {
   const isAuthenticated = role !== null;
   const canWrite = role === "admin" || role === "editor";
   const [people, setPeople] = useState<Person[]>([]);
+  const [gameDate, setGameDate] = useState<string>(todayIso());
+  const [place, setPlace] = useState<string>("");
   const [name, setName] = useState("");
   const [earnings, setEarnings] = useState("");
   const [expenses, setExpenses] = useState("");
@@ -40,16 +60,24 @@ export function Calculator({ role }: Props) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) setPeople(JSON.parse(raw));
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setPeople(parsed);
+      } else if (parsed && typeof parsed === "object") {
+        if (Array.isArray(parsed.people)) setPeople(parsed.people);
+        if (typeof parsed.gameDate === "string") setGameDate(parsed.gameDate);
+        if (typeof parsed.place === "string") setPlace(parsed.place);
+      }
     } catch {}
   }, []);
 
   // Persist draft
   useEffect(() => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(people));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ people, gameDate, place }));
     } catch {}
-  }, [people]);
+  }, [people, gameDate, place]);
 
   const potExpensesTotal = sumPlayerExpenses(people);
 
@@ -159,6 +187,8 @@ export function Calculator({ role }: Props) {
     resetForm();
     setResult(null);
     setPotAmount("");
+    setPlace("");
+    setGameDate(todayIso());
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch {}
@@ -186,10 +216,16 @@ export function Calculator({ role }: Props) {
       toast("Viewers cannot save reports", "error");
       return;
     }
-    const defaultTitle = `Game ${new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    })}`;
+    const parsedDate = new Date(gameDate);
+    const datePart = Number.isNaN(parsedDate.getTime())
+      ? new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : parsedDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC",
+        });
+    const placePart = place.trim() ? ` @ ${place.trim()}` : "";
+    const defaultTitle = `Game ${datePart}${placePart}`;
     const title = prompt("Name this game:", defaultTitle);
     if (title === null) return;
     setSaving(true);
@@ -212,7 +248,79 @@ export function Calculator({ role }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+    <div className="space-y-4">
+      {/* Game details row */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
+            🎯 Game Details
+          </h2>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="label" htmlFor="game-date">Date</label>
+              <DatePicker
+                id="game-date"
+                selected={parseIsoDate(gameDate)}
+                onChange={(d) => d && setGameDate(formatIsoDate(d))}
+                dateFormat="MMM d, yyyy"
+                className="input"
+                wrapperClassName="w-full"
+                popperPlacement="bottom-start"
+                showPopperArrow={false}
+                todayButton="Today"
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="place">Place</label>
+              <input
+                id="place"
+                className="input"
+                placeholder="e.g. Rajesh's house"
+                autoComplete="off"
+                value={place}
+                onChange={(e) => setPlace(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="pot-amount">💰 POT Amount</label>
+              <input
+                id="pot-amount"
+                ref={potAmountRef}
+                className="input"
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="Winnings/Losses"
+                value={potAmount}
+                onChange={(e) => setPotAmount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addPot();
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="pot-expenses">POT Expenses (auto)</label>
+              <input
+                id="pot-expenses"
+                className="input"
+                type="number"
+                readOnly
+                value={potExpensesTotal.toFixed(2)}
+              />
+            </div>
+            <button type="button" className="btn btn-success w-full" onClick={addPot}>
+              Add / Update POT
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {/* Players card */}
       <div className="card">
         <button
@@ -331,59 +439,6 @@ export function Calculator({ role }: Props) {
               )}
             </div>
 
-            {/* POT */}
-            <div
-              className="rounded-[14px] border border-border p-4"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgb(var(--accent) / 0.12), transparent)",
-              }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider text-accent"
-                  style={{ background: "rgb(var(--accent) / 0.12)" }}
-                >
-                  💰 POT
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="label" htmlFor="pot-amount">POT Amount</label>
-                  <input
-                    id="pot-amount"
-                    ref={potAmountRef}
-                    className="input"
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="Winnings/Losses"
-                    value={potAmount}
-                    onChange={(e) => setPotAmount(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addPot();
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="label" htmlFor="pot-expenses">POT Expenses (auto)</label>
-                  <input
-                    id="pot-expenses"
-                    className="input"
-                    type="number"
-                    readOnly
-                    value={potExpensesTotal.toFixed(2)}
-                  />
-                </div>
-              </div>
-              <button type="button" className="btn btn-success" onClick={addPot}>
-                Add / Update POT
-              </button>
-            </div>
-
             {/* People list */}
             <div className="flex flex-col gap-2">
               {people.length === 0 ? (
@@ -466,6 +521,7 @@ export function Calculator({ role }: Props) {
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

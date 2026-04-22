@@ -4,7 +4,10 @@ import { readSessionFromToken, SESSION_COOKIE_NAME } from "@/lib/session";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const needsAuth = pathname.startsWith("/reports") || pathname.startsWith("/admin");
+  const needsAuth =
+    pathname.startsWith("/reports") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/ytd");
   if (!needsAuth) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -22,9 +25,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
+  // YTD: editor + admin only (no viewers)
+  if (pathname.startsWith("/ytd") && session.role === "viewer") {
+    const homeUrl = new URL("/", request.url);
+    return NextResponse.redirect(homeUrl);
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/reports/:path*", "/admin/:path*"],
+  matcher: ["/reports/:path*", "/admin/:path*", "/ytd/:path*"],
 };

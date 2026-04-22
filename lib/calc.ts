@@ -1,4 +1,4 @@
-import type { CalculationResult, Person, Transaction } from "./types";
+import type { CalculationResult, Person, Report, Transaction } from "./types";
 
 export const POT_NAME = "POT";
 
@@ -68,4 +68,70 @@ export function calculatePayments(people: Person[]): CalculationResult | null {
 
 export function sumPlayerExpenses(people: Person[]): number {
   return people.reduce((sum, p) => (isPot(p.name) ? sum : sum + (Number(p.expenses) || 0)), 0);
+}
+
+export type PlayerYtdRow = {
+  name: string;
+  net: number;
+  earnings: number;
+  expenses: number;
+  gamesPlayed: number;
+};
+
+export type YtdSummary = {
+  year: number;
+  gameCount: number;
+  playerCount: number;
+  totalEarnings: number;
+  totalExpenses: number;
+  potBalance: number;
+  players: PlayerYtdRow[];
+};
+
+export function summarizeYtd(reports: Report[], year: number = new Date().getFullYear()): YtdSummary {
+  const inYear = reports.filter((r) => {
+    const d = new Date(r.createdAt);
+    return !Number.isNaN(d.getTime()) && d.getFullYear() === year;
+  });
+
+  const byName = new Map<string, PlayerYtdRow>();
+  let potEarnings = 0;
+  let potExpenses = 0;
+
+  for (const r of inYear) {
+    for (const p of r.snapshot.people) {
+      if (isPot(p.name)) {
+        potEarnings += Number(p.earnings) || 0;
+        potExpenses += Number(p.expenses) || 0;
+        continue;
+      }
+      const key = p.name.trim();
+      const row = byName.get(key) ?? {
+        name: key,
+        net: 0,
+        earnings: 0,
+        expenses: 0,
+        gamesPlayed: 0,
+      };
+      row.earnings += Number(p.earnings) || 0;
+      row.expenses += Number(p.expenses) || 0;
+      row.net += netForPerson(p);
+      row.gamesPlayed += 1;
+      byName.set(key, row);
+    }
+  }
+
+  const players = Array.from(byName.values()).sort((a, b) => b.net - a.net);
+  const totalEarnings = players.reduce((s, p) => s + p.earnings, 0);
+  const totalExpenses = players.reduce((s, p) => s + p.expenses, 0);
+
+  return {
+    year,
+    gameCount: inYear.length,
+    playerCount: players.length,
+    totalEarnings,
+    totalExpenses,
+    potBalance: potEarnings - potExpenses,
+    players,
+  };
 }
