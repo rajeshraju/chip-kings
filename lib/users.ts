@@ -201,3 +201,29 @@ export async function purgeAllUsers(): Promise<void> {
     console.error("[users] purge failed:", err);
   }
 }
+
+export async function forceResetAdmin(): Promise<
+  | { ok: true; user: User }
+  | { ok: false; reason: "missing-env" | "bad-hash-format" }
+> {
+  await purgeAllUsers();
+  seedPromise = null;
+
+  const envUser = process.env.AUTH_USERNAME?.trim();
+  const envHash = process.env.AUTH_PASSWORD_HASH;
+  if (!envUser || !envHash) return { ok: false, reason: "missing-env" };
+
+  if (!/^\$2[aby]\$/.test(envHash)) {
+    return { ok: false, reason: "bad-hash-format" };
+  }
+
+  const admin: User = {
+    id: newId(),
+    username: envUser,
+    passwordHash: envHash,
+    role: "admin",
+    createdAt: new Date().toISOString(),
+  };
+  await writeAll([admin]);
+  return { ok: true, user: admin };
+}
