@@ -3,41 +3,44 @@
 @tailwind utilities;
 
 :root {
-  --bg: 9 9 12;
-  --bg-elevated: 17 17 22;
-  --bg-card: 22 22 28;
-  --bg-subtle: 30 30 38;
-  --border: 40 40 50;
-  --border-strong: 60 60 74;
-  --fg: 245 245 250;
-  --fg-muted: 161 161 179;
-  --fg-dim: 113 113 130;
-  --accent: 139 92 246;
-  --accent-hover: 124 77 238;
+  --bg: 5 8 15;
+  --bg-elevated: 17 24 36;
+  --bg-card: 23 33 50;
+  --bg-subtle: 31 54 77;
+  --border: 45 66 92;
+  --border-strong: 70 95 125;
+  --fg: 231 230 231;
+  --fg-muted: 141 144 146;
+  --fg-dim: 100 110 125;
+  --accent: 250 207 56;
+  --accent-hover: 232 151 13;
+  --accent-fg: 17 24 36;
   --success: 52 211 153;
-  --danger: 248 113 113;
-  --warning: 251 191 36;
+  --danger: 200 55 30;
+  --warning: 232 151 13;
 }
 
 [data-theme="light"] {
-  --bg: 250 250 252;
+  --bg: 255 255 255;
   --bg-elevated: 255 255 255;
   --bg-card: 255 255 255;
-  --bg-subtle: 244 244 248;
-  --border: 229 229 236;
-  --border-strong: 209 209 220;
-  --fg: 17 17 27;
-  --fg-muted: 82 82 105;
-  --fg-dim: 130 130 150;
-  --accent: 124 58 237;
-  --accent-hover: 109 40 217;
-  --success: 16 185 129;
-  --danger: 225 29 72;
+  --bg-subtle: 244 246 250;
+  --border: 222 228 238;
+  --border-strong: 198 208 222;
+  --fg: 17 24 36;
+  --fg-muted: 82 95 115;
+  --fg-dim: 148 160 178;
+  --accent: 232 151 13;
+  --accent-hover: 196 125 8;
+  --accent-fg: 17 24 36;
+  --success: 22 163 74;
+  --danger: 157 36 12;
   --warning: 217 119 6;
 }
 
 @layer base {
   html {
+    font-size: 15px;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -53,8 +56,8 @@
     pointer-events: none;
     z-index: 0;
     background:
-      radial-gradient(circle at 10% 0%, rgb(var(--accent) / 0.18), transparent 45%),
-      radial-gradient(circle at 90% 100%, rgb(56 189 248 / 0.08), transparent 50%);
+      radial-gradient(circle at 10% 0%, rgb(var(--accent) / 0.14), transparent 45%),
+      radial-gradient(circle at 90% 100%, rgb(var(--danger) / 0.08), transparent 50%);
   }
 
   input[type="number"] {
@@ -74,11 +77,16 @@
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px]
-      rounded-[10px] text-sm font-semibold bg-accent text-white
+      rounded-[10px] text-sm font-semibold bg-accent text-accent-fg
       transition-all duration-150 select-none
       hover:bg-accent-hover hover:-translate-y-px
       active:translate-y-0
       disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none;
+  }
+
+  .btn-success,
+  .btn-danger {
+    @apply text-white;
   }
 
   .btn-secondary {
@@ -232,7 +240,7 @@ select {
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
   background-color: rgb(var(--accent));
-  color: #fff;
+  color: rgb(var(--accent-fg));
 }
 .react-datepicker__day--selected:hover,
 .react-datepicker__day--keyboard-selected:hover {

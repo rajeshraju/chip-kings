@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -42,15 +43,15 @@ export function Nav() {
     <header className="mb-6">
       <div className="flex justify-between items-center gap-3 mb-5">
         <Link href="/" className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl grid place-items-center text-white text-lg font-bold font-display shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, rgb(var(--accent)), #38bdf8)",
-              boxShadow: "0 6px 20px rgb(var(--accent) / 0.4)",
-            }}
-          >
-            ♠
-          </div>
+          <Image
+            src="/logo.png"
+            alt="Chip Kings"
+            width={40}
+            height={40}
+            priority
+            className="w-10 h-10 rounded-xl shadow-lg"
+            style={{ boxShadow: "0 6px 20px rgb(var(--accent) / 0.4)" }}
+          />
           <div>
             <h1 className="font-display text-xl font-bold tracking-tight leading-none">
               Chip Kings

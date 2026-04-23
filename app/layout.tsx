@@ -20,10 +20,14 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Chip Kings",
   description: "Poker settlement and reporting",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090c",
+  themeColor: "#05080f",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
