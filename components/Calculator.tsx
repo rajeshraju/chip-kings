@@ -508,8 +508,8 @@ export function Calculator({ role }: Props) {
                     {saving
                       ? "Saving…"
                       : isAuthenticated
-                      ? "💾 Save to Reports"
-                      : "🔒 Sign in to save to Reports"}
+                      ? "💾 Save to Games"
+                      : "🔒 Sign in to save to Games"}
                   </button>
                 )}
               </div>
