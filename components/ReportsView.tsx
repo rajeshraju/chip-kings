@@ -64,7 +64,7 @@ export function ReportsView({
       <div className="card">
         <div className="card-header">
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
-            📁 Saved Reports
+            📁 Saved Games
           </h2>
           <div className="flex gap-2">
             <button onClick={refresh} className="btn btn-ghost btn-small" title="Refresh">
@@ -79,7 +79,7 @@ export function ReportsView({
           {reports.length === 0 ? (
             <div className="text-center py-10 text-fg-dim text-sm">
               <span className="block text-3xl mb-2">📭</span>
-              No saved reports yet. Finish a calculation and tap &ldquo;Save to Reports&rdquo;.
+              No saved games yet. Finish a calculation and tap &ldquo;Save to Games&rdquo;.
             </div>
           ) : (
             <div className="space-y-3">

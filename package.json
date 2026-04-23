@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "hash": "node scripts/hash-password.mjs"
+    "hash": "node scripts/hash-password.mjs",
+    "users": "node scripts/list-users.mjs",
+    "reset-admin": "node scripts/reset-admin.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.3.3",
