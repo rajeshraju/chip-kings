@@ -33,7 +33,7 @@ export function Nav() {
   const canWrite = user?.role === "admin" || user?.role === "editor";
   const tabs: { href: string; label: string; emoji: string; hidden?: boolean }[] = [
     { href: "/", label: "Calculator", emoji: "🧮" },
-    { href: "/reports", label: "Games", emoji: "📁" },
+    { href: "/reports", label: "Games", emoji: "📁", hidden: !user },
     { href: "/ytd", label: "Report", emoji: "📈", hidden: !canWrite },
     { href: "/admin", label: "Admin", emoji: "⚙", hidden: user?.role !== "admin" },
   ];
@@ -45,8 +45,8 @@ export function Nav() {
           <div
             className="w-10 h-10 rounded-xl grid place-items-center text-white text-lg font-bold font-display shadow-lg"
             style={{
-              background: "linear-gradient(135deg, rgb(var(--accent)), #b388ff)",
-              boxShadow: "0 6px 20px rgb(var(--accent) / 0.35)",
+              background: "linear-gradient(135deg, rgb(var(--accent)), #38bdf8)",
+              boxShadow: "0 6px 20px rgb(var(--accent) / 0.4)",
             }}
           >
             ♠
