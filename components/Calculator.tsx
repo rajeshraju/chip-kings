@@ -368,23 +368,41 @@ export function Calculator({ role, playerNames }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="label" htmlFor="chips-taken">Chips Taken</label>
-                <input
-                  id="chips-taken"
-                  ref={chipsTakenRef}
-                  className="input"
-                  type="number"
-                  step="50"
-                  min="0"
-                  inputMode="numeric"
-                  value={chipsTaken}
-                  onChange={(e) => setChipsTaken(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      chipsLeftRef.current?.focus();
-                    }
-                  }}
-                />
+                <div className="flex items-stretch gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="Decrease chips taken"
+                    className="input !w-11 !px-0 !py-0 grid place-items-center text-lg font-semibold select-none"
+                    onClick={() => {
+                      const cur = parseFloat(chipsTaken);
+                      const base = Number.isNaN(cur) ? DEFAULT_CHIPS_TAKEN : cur;
+                      setChipsTaken(String(Math.max(0, base - 50)));
+                    }}
+                  >
+                    −
+                  </button>
+                  <input
+                    id="chips-taken"
+                    ref={chipsTakenRef}
+                    className="input text-center flex-1 min-w-0"
+                    type="text"
+                    inputMode="none"
+                    readOnly
+                    value={chipsTaken}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Increase chips taken"
+                    className="input !w-11 !px-0 !py-0 grid place-items-center text-lg font-semibold select-none"
+                    onClick={() => {
+                      const cur = parseFloat(chipsTaken);
+                      const base = Number.isNaN(cur) ? DEFAULT_CHIPS_TAKEN : cur;
+                      setChipsTaken(String(base + 50));
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="label" htmlFor="chips-left">Chips Left</label>

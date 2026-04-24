@@ -341,7 +341,9 @@ function UserCard({
       </div>
       <div className="flex gap-1 justify-center mt-2 pt-2 border-t border-border">
         {!isEditing && (
-          <IconBtn label="Edit user" onClick={onStartEdit}>✏️</IconBtn>
+          <IconBtn label="Edit user" onClick={onStartEdit}>
+            <PencilIcon className="w-4 h-4" />
+          </IconBtn>
         )}
         <IconBtn
           label={isSelf ? "Cannot delete yourself" : "Delete user"}
@@ -349,7 +351,7 @@ function UserCard({
           disabled={isSelf}
           danger
         >
-          🗑
+          <XIcon className="w-4 h-4" />
         </IconBtn>
       </div>
       {isEditing && (
