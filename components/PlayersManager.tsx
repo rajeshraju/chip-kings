@@ -258,9 +258,13 @@ function PlayerCard({
       </div>
       <div className="flex gap-1 justify-center mt-2 pt-2 border-t border-border">
         {!isEditing && (
-          <IconBtn label="Edit player" onClick={onStartEdit}>✏️</IconBtn>
+          <IconBtn label="Edit player" onClick={onStartEdit}>
+            <PencilIcon className="w-4 h-4" />
+          </IconBtn>
         )}
-        <IconBtn label="Delete player" onClick={onDelete} danger>🗑</IconBtn>
+        <IconBtn label="Delete player" onClick={onDelete} danger>
+          <XIcon className="w-4 h-4" />
+        </IconBtn>
       </div>
       {isEditing && (
         <div className="border-t border-border pt-3 mt-3">
