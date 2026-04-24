@@ -176,7 +176,7 @@ export function ReportsView({
                 {" · "}
                 {openReport.createdBy}
               </div>
-              <ResultsView result={openReport.snapshot} />
+              <ResultsView result={openReport.snapshot} reportId={openReport.id} />
               <div className="mt-5">
                 <div className="font-display text-sm font-semibold text-fg-muted uppercase tracking-wide mb-3">
                   Players

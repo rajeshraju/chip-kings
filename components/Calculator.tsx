@@ -23,26 +23,22 @@ function formatIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-const PERSON_NAMES = [
-  "Aravind", "Chiru", "Danthuluri", "Eshwar", "Kishore", "Krishna", "Mahesh",
-  "Patange", "Prafulla", "Rajesh", "Rama Raju","Ranjith", "Ravindra", "Sandeep",
-  "Srikanth", "Surya", "Varahalu", "Vamsi",
-];
-
 const DRAFT_KEY = "chip-kings-draft";
+const DEFAULT_CHIPS_TAKEN = 250;
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-type Props = { role: Role | null };
+type Props = { role: Role | null; playerNames: string[] };
 
-export function Calculator({ role }: Props) {
+export function Calculator({ role, playerNames }: Props) {
   const isAuthenticated = role !== null;
   const canWrite = role === "admin" || role === "editor";
   const [people, setPeople] = useState<Person[]>([]);
   const [gameDate, setGameDate] = useState<string>(todayIso());
   const [place, setPlace] = useState<string>("");
   const [name, setName] = useState("");
-  const [earnings, setEarnings] = useState("");
+  const [chipsTaken, setChipsTaken] = useState(String(DEFAULT_CHIPS_TAKEN));
+  const [chipsLeft, setChipsLeft] = useState("");
   const [expenses, setExpenses] = useState("");
   const [potAmount, setPotAmount] = useState("");
   const [editingIndex, setEditingIndex] = useState(-1);
@@ -51,8 +47,9 @@ export function Calculator({ role }: Props) {
   const [inputsCollapsed, setInputsCollapsed] = useState(false);
   const [resultsCollapsed, setResultsCollapsed] = useState(false);
 
-  const nameRef = useRef<HTMLInputElement>(null);
-  const earningsRef = useRef<HTMLInputElement>(null);
+  const nameSelectRef = useRef<HTMLSelectElement>(null);
+  const chipsTakenRef = useRef<HTMLInputElement>(null);
+  const chipsLeftRef = useRef<HTMLInputElement>(null);
   const expensesRef = useRef<HTMLInputElement>(null);
   const potAmountRef = useRef<HTMLInputElement>(null);
 
@@ -93,7 +90,8 @@ export function Calculator({ role }: Props) {
 
   function resetForm() {
     setName("");
-    setEarnings("");
+    setChipsTaken(String(DEFAULT_CHIPS_TAKEN));
+    setChipsLeft("");
     setExpenses("");
     setEditingIndex(-1);
   }
@@ -101,16 +99,23 @@ export function Calculator({ role }: Props) {
   function addPerson() {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast("Enter a player name", "error");
-      nameRef.current?.focus();
+      toast("Pick a player", "error");
+      nameSelectRef.current?.focus();
       return;
     }
-    const earn = earnings.trim() === "" ? 0 : parseFloat(earnings);
-    if (earnings.trim() !== "" && Number.isNaN(earn)) {
-      toast("Invalid winnings/losses", "error");
-      earningsRef.current?.focus();
+    const taken = chipsTaken.trim() === "" ? NaN : parseFloat(chipsTaken);
+    if (Number.isNaN(taken) || taken < 0) {
+      toast("Invalid chips taken", "error");
+      chipsTakenRef.current?.focus();
       return;
     }
+    const left = chipsLeft.trim() === "" ? NaN : parseFloat(chipsLeft);
+    if (Number.isNaN(left) || left < 0) {
+      toast("Invalid chips left", "error");
+      chipsLeftRef.current?.focus();
+      return;
+    }
+    const earn = left - taken;
     const exp = expenses.trim() === "" ? 0 : parseFloat(expenses);
     if (expenses.trim() !== "" && (Number.isNaN(exp) || exp < 0)) {
       toast("Expenses must be ≥ 0", "error");
@@ -119,25 +124,22 @@ export function Calculator({ role }: Props) {
     }
 
     setPeople((prev) => {
+      const next = { name: trimmed, earnings: earn, expenses: exp, chipsTaken: taken };
       if (editingIndex !== -1) {
-        return prev.map((p, i) =>
-          i === editingIndex ? { name: trimmed, earnings: earn, expenses: exp } : p
-        );
+        return prev.map((p, i) => (i === editingIndex ? next : p));
       }
       const existing = prev.findIndex(
         (p) => p.name.toLowerCase() === trimmed.toLowerCase()
       );
       if (existing !== -1) {
-        return prev.map((p, i) =>
-          i === existing ? { name: trimmed, earnings: earn, expenses: exp } : p
-        );
+        return prev.map((p, i) => (i === existing ? next : p));
       }
-      return [...prev, { name: trimmed, earnings: earn, expenses: exp }];
+      return [...prev, next];
     });
 
     resetForm();
     setResult(null);
-    nameRef.current?.focus();
+    nameSelectRef.current?.focus();
   }
 
   function addPot() {
@@ -169,10 +171,12 @@ export function Calculator({ role }: Props) {
       return;
     }
     setName(p.name);
-    setEarnings(p.earnings === 0 ? "" : String(p.earnings));
+    const taken = Number(p.chipsTaken ?? DEFAULT_CHIPS_TAKEN);
+    setChipsTaken(String(taken));
+    setChipsLeft(String(taken + (Number(p.earnings) || 0)));
     setExpenses(p.expenses === 0 ? "" : String(p.expenses));
     setEditingIndex(i);
-    nameRef.current?.focus();
+    chipsLeftRef.current?.focus();
   }
 
   function removePerson(i: number) {
@@ -341,60 +345,60 @@ export function Calculator({ role }: Props) {
         </button>
         {!inputsCollapsed && (
           <div className="card-body space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="player-select">Player</label>
+              <select
+                id="player-select"
+                ref={nameSelectRef}
+                className="input"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (e.target.value) chipsLeftRef.current?.focus();
+                }}
+              >
+                <option value="">Choose a player…</option>
+                {playerNames.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="label" htmlFor="dropdown">Quick Select</label>
-                <select
-                  id="dropdown"
-                  className="input"
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setName(e.target.value);
-                      earningsRef.current?.focus();
-                    }
-                  }}
-                >
-                  <option value="">Choose a name…</option>
-                  {PERSON_NAMES.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="name">Name</label>
+                <label className="label" htmlFor="chips-taken">Chips Taken</label>
                 <input
-                  id="name"
-                  ref={nameRef}
+                  id="chips-taken"
+                  ref={chipsTakenRef}
                   className="input"
-                  placeholder="Enter name"
-                  autoComplete="off"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  type="number"
+                  step="50"
+                  min="0"
+                  inputMode="numeric"
+                  value={chipsTaken}
+                  onChange={(e) => setChipsTaken(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      earningsRef.current?.focus();
+                      chipsLeftRef.current?.focus();
                     }
                   }}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label" htmlFor="earnings">Winnings / Losses</label>
+                <label className="label" htmlFor="chips-left">Chips Left</label>
                 <input
-                  id="earnings"
-                  ref={earningsRef}
+                  id="chips-left"
+                  ref={chipsLeftRef}
                   className="input"
                   type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  placeholder="e.g. 150 or -80"
-                  value={earnings}
-                  onChange={(e) => setEarnings(e.target.value)}
+                  step="1"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="Final chip count"
+                  value={chipsLeft}
+                  onChange={(e) => setChipsLeft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -426,7 +430,7 @@ export function Calculator({ role }: Props) {
             </div>
             <div className="flex gap-2.5 flex-wrap">
               <button type="button" className="btn" onClick={addPerson}>
-                {editingIndex !== -1 ? "Update Player" : "Add Player"}
+                {editingIndex !== -1 ? "Edit" : "Add"}
               </button>
               {editingIndex !== -1 && (
                 <button

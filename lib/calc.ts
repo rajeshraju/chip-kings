@@ -84,6 +84,7 @@ export type YtdSummary = {
   playerCount: number;
   totalEarnings: number;
   totalExpenses: number;
+  totalPot: number;
   potBalance: number;
   players: PlayerYtdRow[];
 };
@@ -113,9 +114,11 @@ export function summarizeYtd(reports: Report[], year: number = new Date().getFul
         expenses: 0,
         gamesPlayed: 0,
       };
-      row.earnings += Number(p.earnings) || 0;
-      row.expenses += Number(p.expenses) || 0;
-      row.net += netForPerson(p);
+      const earnings = Number(p.earnings) || 0;
+      const expenses = Number(p.expenses) || 0;
+      row.earnings += earnings;
+      row.expenses += expenses;
+      row.net += earnings;
       row.gamesPlayed += 1;
       byName.set(key, row);
     }
@@ -123,7 +126,8 @@ export function summarizeYtd(reports: Report[], year: number = new Date().getFul
 
   const players = Array.from(byName.values()).sort((a, b) => b.net - a.net);
   const totalEarnings = players.reduce((s, p) => s + p.earnings, 0);
-  const totalExpenses = players.reduce((s, p) => s + p.expenses, 0);
+  const playerExpenses = players.reduce((s, p) => s + p.expenses, 0);
+  const totalExpenses = playerExpenses + potExpenses;
 
   return {
     year,
@@ -131,6 +135,7 @@ export function summarizeYtd(reports: Report[], year: number = new Date().getFul
     playerCount: players.length,
     totalEarnings,
     totalExpenses,
+    totalPot: potEarnings,
     potBalance: potEarnings - potExpenses,
     players,
   };

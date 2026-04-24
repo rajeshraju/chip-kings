@@ -2,6 +2,7 @@ export type Person = {
   name: string;
   earnings: number;
   expenses: number;
+  chipsTaken?: number;
 };
 
 export type Transaction = {
@@ -27,6 +28,12 @@ export type Report = {
   createdAt: string;
   createdBy: string;
   snapshot: CalculationResult;
+};
+
+export type Player = {
+  id: string;
+  name: string;
+  createdAt: string;
 };
 
 // --- Auth / users ---

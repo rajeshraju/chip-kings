@@ -43,7 +43,7 @@ export function YtdView({ reports }: { reports: Report[] }) {
           </select>
         </div>
         <div className="card-body">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="stat">
               <div className="stat-label">Games</div>
               <div className="stat-value">{summary.gameCount}</div>
@@ -53,8 +53,8 @@ export function YtdView({ reports }: { reports: Report[] }) {
               <div className="stat-value">{summary.playerCount}</div>
             </div>
             <div className="stat">
-              <div className="stat-label">Total Expenses</div>
-              <div className="stat-value">${formatDollar(summary.totalExpenses)}</div>
+              <div className="stat-label">Total Pot</div>
+              <div className="stat-value">${formatDollar(summary.totalPot)}</div>
             </div>
             <div className="stat">
               <div className="stat-label">POT Balance</div>
@@ -66,6 +66,10 @@ export function YtdView({ reports }: { reports: Report[] }) {
                 {summary.potBalance >= 0 ? "+" : "−"}$
                 {formatDollar(Math.abs(summary.potBalance))}
               </div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Expenses</div>
+              <div className="stat-value">${formatDollar(summary.totalExpenses)}</div>
             </div>
           </div>
         </div>
@@ -119,13 +123,6 @@ export function YtdView({ reports }: { reports: Report[] }) {
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <div className="flex gap-4 mt-2 text-[11px] text-fg-muted font-mono">
-                      <span>
-                        W/L: {p.earnings >= 0 ? "+" : "−"}$
-                        {formatDollar(Math.abs(p.earnings))}
-                      </span>
-                      <span>Expenses: ${formatDollar(p.expenses)}</span>
-                    </div>
                   </div>
                 );
               })}
@@ -133,6 +130,7 @@ export function YtdView({ reports }: { reports: Report[] }) {
           )}
         </div>
       </div>
+
     </div>
   );
 }
