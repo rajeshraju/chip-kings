@@ -99,6 +99,21 @@ export async function saveReport(report: Report): Promise<Report> {
   return report;
 }
 
+export async function updateReport(
+  id: string,
+  patch: Partial<Pick<Report, "title" | "snapshot">>
+): Promise<Report | null> {
+  const reports = await readAllReports();
+  const idx = reports.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  const updated: Report = { ...reports[idx] };
+  if (patch.title !== undefined) updated.title = patch.title;
+  if (patch.snapshot !== undefined) updated.snapshot = patch.snapshot;
+  reports[idx] = updated;
+  await writeAllReports(reports);
+  return updated;
+}
+
 export async function deleteReport(id: string): Promise<boolean> {
   const reports = await readAllReports();
   const next = reports.filter((r) => r.id !== id);

@@ -36,6 +36,17 @@ export type Player = {
   createdAt: string;
 };
 
+export type Reconciliation = {
+  id: string;
+  title: string;
+  createdAt: string;
+  createdBy: string;
+  reportIds: string[];
+  reportTitles: string[];
+  sourceReports?: Report[];
+  snapshot: CalculationResult;
+};
+
 // --- Auth / users ---
 
 export type Role = "admin" | "editor" | "viewer";
