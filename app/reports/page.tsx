@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { listReports } from "@/lib/storage";
+import { listReconciliations } from "@/lib/reconciliations";
 import { ReportsView } from "@/components/ReportsView";
 import { redirect } from "next/navigation";
 
@@ -9,6 +10,15 @@ export default async function ReportsPage() {
   const session = await getSession();
   if (!session) redirect("/login?next=/reports");
 
-  const reports = await listReports();
-  return <ReportsView initialReports={reports} role={session.role} />;
+  const [reports, reconciliations] = await Promise.all([
+    listReports(),
+    listReconciliations(),
+  ]);
+  return (
+    <ReportsView
+      initialReports={reports}
+      initialReconciliations={reconciliations}
+      role={session.role}
+    />
+  );
 }

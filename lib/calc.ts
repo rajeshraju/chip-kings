@@ -70,6 +70,25 @@ export function sumPlayerExpenses(people: Person[]): number {
   return people.reduce((sum, p) => (isPot(p.name) ? sum : sum + (Number(p.expenses) || 0)), 0);
 }
 
+export function combinePeople(reports: Report[]): Person[] {
+  const map = new Map<string, Person>();
+  for (const r of reports) {
+    for (const p of r.snapshot.people) {
+      const key = p.name.trim().toLowerCase();
+      const earn = Number(p.earnings) || 0;
+      const exp = Number(p.expenses) || 0;
+      const existing = map.get(key);
+      if (existing) {
+        existing.earnings += earn;
+        existing.expenses += exp;
+      } else {
+        map.set(key, { name: p.name.trim(), earnings: earn, expenses: exp });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 export type PlayerYtdRow = {
   name: string;
   net: number;
