@@ -267,13 +267,9 @@ export function ReportsView({
           <ResultsView result={openRecon.snapshot} reportId={openRecon.id} />
           <div className="mt-5">
             <div className="font-display text-sm font-semibold text-fg-muted uppercase tracking-wide mb-3">
-              Players
+              Per-Player Breakdown
             </div>
-            <div className="flex flex-col gap-2">
-              {openRecon.snapshot.people.map((p, i) => (
-                <PlayerRow key={`${p.name}-${i}`} person={p} index={i} readOnly />
-              ))}
-            </div>
+            <PerPlayerBreakdown recon={openRecon} />
           </div>
         </DetailModal>
       )}
@@ -534,6 +530,129 @@ function ReconciliationCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PerPlayerBreakdown({ recon }: { recon: Reconciliation }) {
+  const sources = recon.sourceReports ?? [];
+  const players = recon.snapshot.people.filter((p) => !isPot(p.name));
+  const sortedPlayers = [...players].sort((a, b) => b.earnings - a.earnings);
+
+  if (sources.length === 0) {
+    return (
+      <>
+        <div className="text-xs text-fg-dim mb-3">
+          Per-game breakdown is not available for this reconciliation (created
+          before per-game tracking).
+        </div>
+        <div className="flex flex-col gap-2">
+          {recon.snapshot.people.map((p, i) => (
+            <PlayerRow key={`${p.name}-${i}`} person={p} index={i} readOnly />
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sortedPlayers.map((player) => {
+        const key = player.name.trim().toLowerCase();
+        const rows = sources
+          .map((report) => {
+            const match = report.snapshot.people.find(
+              (p) => p.name.trim().toLowerCase() === key
+            );
+            return match ? { report, person: match } : null;
+          })
+          .filter((x): x is { report: Report; person: typeof player } => !!x)
+          .sort(
+            (a, b) =>
+              new Date(a.report.createdAt).getTime() -
+              new Date(b.report.createdAt).getTime()
+          );
+        const totalEarnings = player.earnings;
+        const positive = totalEarnings >= 0;
+
+        return (
+          <div
+            key={player.name}
+            className="rounded-[10px] bg-bg-elevated border border-border overflow-hidden"
+          >
+            <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-bg-subtle border-b border-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <strong className="font-semibold truncate">
+                  {player.name}
+                </strong>
+                <span className="text-[11px] text-fg-dim font-mono">
+                  {rows.length} {rows.length === 1 ? "game" : "games"}
+                </span>
+              </div>
+              <span
+                className={`font-mono font-semibold text-[14px] ${
+                  positive ? "text-success" : "text-danger"
+                }`}
+              >
+                {positive ? "+" : "−"}${formatDollar(Math.abs(totalEarnings))}
+              </span>
+            </div>
+            <div className="divide-y divide-border">
+              {rows.length === 0 ? (
+                <div className="px-3.5 py-2.5 text-xs text-fg-dim">
+                  Did not play in any source game.
+                </div>
+              ) : (
+                rows.map(({ report, person }) => {
+                  const earn = Number(person.earnings) || 0;
+                  const exp = Number(person.expenses) || 0;
+                  const taken = Number(person.chipsTaken);
+                  const showChips = !Number.isNaN(taken) && taken > 0;
+                  const left = showChips ? taken + earn : null;
+                  const win = earn >= 0;
+                  return (
+                    <div
+                      key={report.id}
+                      className="grid grid-cols-[1fr_auto] gap-2 px-3.5 py-2 text-sm items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">
+                          {report.title}
+                        </div>
+                        <div className="text-[11px] text-fg-dim font-mono mt-0.5 flex flex-wrap gap-2">
+                          <span>
+                            {new Date(report.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </span>
+                          {showChips && (
+                            <span>
+                              chips {taken} → {left}
+                            </span>
+                          )}
+                          {exp > 0 && <span>exp ${formatDollar(exp)}</span>}
+                        </div>
+                      </div>
+                      <span
+                        className={`font-mono font-semibold ${
+                          win ? "text-success" : "text-danger"
+                        }`}
+                      >
+                        {win ? "+" : "−"}${formatDollar(Math.abs(earn))}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
