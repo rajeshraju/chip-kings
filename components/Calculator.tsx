@@ -7,6 +7,8 @@ import { formatDollar, isPot, netForPerson, sumPlayerExpenses } from "@/lib/calc
 import type { CalculationResult, Person, Report, Role } from "@/lib/types";
 import { PlayerRow } from "./PlayerRow";
 import { toast } from "./Toaster";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { PromptDialog } from "./PromptDialog";
 
 function parseIsoDate(s: string): Date | null {
   const parts = s.split("-").map(Number);
@@ -58,6 +60,11 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
   const [potAmount, setPotAmount] = useState("");
   const [editingIndex, setEditingIndex] = useState(-1);
   const [saving, setSaving] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [pendingSave, setPendingSave] = useState<{
+    defaultTitle: string;
+    snapshot: CalculationResult;
+  } | null>(null);
 
   const nameSelectRef = useRef<HTMLSelectElement>(null);
   const chipsTakenRef = useRef<HTMLInputElement>(null);
@@ -203,7 +210,10 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
   }
 
   function clearAll() {
-    if (!confirm("Clear all players and reset?")) return;
+    setConfirmClear(true);
+  }
+
+  function performClearAll() {
     setPeople([]);
     resetForm();
     setPotAmount("");
@@ -212,6 +222,7 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch {}
+    setConfirmClear(false);
   }
 
   async function saveGame() {
@@ -286,21 +297,25 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
     const placePart = place.trim() ? ` @ ${place.trim()}` : "";
     const defaultTitle =
       isEditing && editingReport ? editingReport.title : `Game ${datePart}${placePart}`;
-    const title = prompt(
-      isEditing ? "Update game name:" : "Name this game:",
-      defaultTitle
-    );
-    if (title === null) return;
+    setPendingSave({ defaultTitle, snapshot });
+  }
+
+  async function performSave(rawTitle: string) {
+    if (!pendingSave) return;
+    const { defaultTitle, snapshot } = pendingSave;
+    const title = rawTitle.trim() || defaultTitle;
+    setPendingSave(null);
     setSaving(true);
     try {
-      const url = isEditing && editingReport
-        ? `/api/reports/${editingReport.id}`
-        : "/api/reports";
+      const url =
+        isEditing && editingReport
+          ? `/api/reports/${editingReport.id}`
+          : "/api/reports";
       const method = isEditing ? "PATCH" : "POST";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || defaultTitle, snapshot }),
+        body: JSON.stringify({ title, snapshot }),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -345,11 +360,13 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
                 selected={parseIsoDate(gameDate)}
                 onChange={(d) => d && setGameDate(formatIsoDate(d))}
                 dateFormat="MMM d, yyyy"
-                className="input"
+                className="input cursor-pointer"
                 wrapperClassName="w-full"
                 popperPlacement="bottom-start"
                 showPopperArrow={false}
                 todayButton="Today"
+                onKeyDown={(e) => e.preventDefault()}
+                onChangeRaw={(e) => e?.preventDefault()}
               />
             </div>
             <div>
@@ -595,6 +612,31 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
         </div>
       </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmClear}
+        danger
+        title="Clear all players?"
+        message="This removes all players from the current session and resets the game details. Saved games are not affected."
+        confirmLabel="Clear all"
+        onCancel={() => setConfirmClear(false)}
+        onConfirm={performClearAll}
+      />
+
+      <PromptDialog
+        open={!!pendingSave}
+        title={isEditing ? "Update game name" : "Name this game"}
+        message={
+          isEditing
+            ? "Edit the title for this saved game."
+            : "Give this game a memorable name. Press Enter to save."
+        }
+        defaultValue={pendingSave?.defaultTitle ?? ""}
+        placeholder="Game title"
+        confirmLabel={isEditing ? "Update" : "Save game"}
+        onCancel={() => setPendingSave(null)}
+        onConfirm={performSave}
+      />
     </div>
   );
 }

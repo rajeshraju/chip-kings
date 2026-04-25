@@ -36,6 +36,15 @@ export type Player = {
   createdAt: string;
 };
 
+// Pot ledger: per-player running balance with the POT.
+//   amount > 0  → POT owes the player (player gets this from the pot)
+//   amount < 0  → player owes the POT
+export type PotLedgerEntry = {
+  name: string;
+  amount: number;
+  updatedAt: string;
+};
+
 export type Reconciliation = {
   id: string;
   title: string;
