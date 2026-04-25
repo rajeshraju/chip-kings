@@ -1,7 +1,8 @@
 import { getSession } from "@/lib/auth";
 import { listReports } from "@/lib/storage";
 import { listReconciliations } from "@/lib/reconciliations";
-import { YtdView } from "@/components/YtdView";
+import { listPotLedger } from "@/lib/pot";
+import { ReportTabs } from "@/components/ReportTabs";
 import type { Report } from "@/lib/types";
 import { redirect } from "next/navigation";
 
@@ -12,9 +13,10 @@ export default async function YtdPage() {
   if (!session) redirect("/login?next=/ytd");
   if (session.role === "viewer") redirect("/");
 
-  const [reports, reconciliations] = await Promise.all([
+  const [reports, reconciliations, potEntries] = await Promise.all([
     listReports(),
     listReconciliations(),
+    listPotLedger(),
   ]);
 
   const fromReconciled: Report[] = reconciliations.flatMap((r) => {
@@ -31,5 +33,5 @@ export default async function YtdPage() {
   });
 
   const allReports = [...reports, ...fromReconciled];
-  return <YtdView reports={allReports} />;
+  return <ReportTabs reports={allReports} potEntries={potEntries} />;
 }
