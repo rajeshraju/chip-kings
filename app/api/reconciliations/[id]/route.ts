@@ -43,17 +43,61 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
-    await requireCanWrite();
+    const session = await requireCanWrite();
     const body = (await req.json().catch(() => ({}))) as {
       payments?: unknown;
       transactions?: unknown;
+      completed?: unknown;
     };
+
+    // Mark as complete: lock the reconciliation. Allowed only when every
+    // settlement is already paid.
+    if (body.completed === true) {
+      const existing = await getReconciliation(params.id);
+      if (!existing) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      if (existing.completed) {
+        return NextResponse.json({ reconciliation: existing });
+      }
+      const txns = existing.snapshot.transactions;
+      if (txns.length === 0) {
+        return NextResponse.json(
+          { error: "Nothing to complete — no settlements" },
+          { status: 400 }
+        );
+      }
+      const allPaid = txns.every((_, i) => Boolean(existing.payments?.[i]));
+      if (!allPaid) {
+        return NextResponse.json(
+          { error: "Cannot complete: some settlements are still outstanding" },
+          { status: 400 }
+        );
+      }
+      const updated = {
+        ...existing,
+        completed: true,
+        completedAt: new Date().toISOString(),
+        completedBy: session.username,
+      };
+      const saved = await replaceReconciliation(params.id, updated);
+      if (!saved) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      return NextResponse.json({ reconciliation: saved });
+    }
 
     // transactions update: edit who-pays-whom amounts; settle constraint applies.
     if (Array.isArray(body.transactions)) {
       const existing = await getReconciliation(params.id);
       if (!existing) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      if (existing.completed) {
+        return NextResponse.json(
+          { error: "Reconciliation is completed and cannot be edited" },
+          { status: 400 }
+        );
       }
 
       const playerNames = new Set(
@@ -150,7 +194,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     if (!Array.isArray(body.payments)) {
       return NextResponse.json(
-        { error: "Provide payments[] or transactions[]" },
+        { error: "Provide payments[], transactions[], or completed:true" },
+        { status: 400 }
+      );
+    }
+    // Block payment toggles on completed reconciliations.
+    const existingForPayments = await getReconciliation(params.id);
+    if (!existingForPayments) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (existingForPayments.completed) {
+      return NextResponse.json(
+        { error: "Reconciliation is completed and is now read-only" },
         { status: 400 }
       );
     }

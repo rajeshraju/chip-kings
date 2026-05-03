@@ -38,7 +38,11 @@ export function PaymentsView({
     initialReconciliations
   );
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedRecons, setExpandedRecons] = useState<Set<string>>(
+    new Set()
+  );
   const [filter, setFilter] = useState<"all" | "outstanding" | "paid">("all");
+  const [mode, setMode] = useState<"player" | "reconciliation">("player");
 
   const summaries = useMemo(
     () => buildPlayerSummaries(reconciliations),
@@ -78,21 +82,32 @@ export function PaymentsView({
     });
   }
 
+  function toggleReconExpanded(id: string) {
+    setExpandedRecons((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   async function togglePayment(reconId: string, txnIndex: number) {
-    let prevPayments: boolean[] | undefined;
-    let nextPayments: boolean[] = [];
-    setReconciliations((prev) =>
-      prev.map((r) => {
-        if (r.id !== reconId) return r;
-        prevPayments = r.payments;
-        const base = r.snapshot.transactions.map((_, i) =>
-          Boolean(r.payments?.[i])
-        );
-        base[txnIndex] = !base[txnIndex];
-        nextPayments = base;
-        return { ...r, payments: base };
-      })
+    const recon = reconciliations.find((r) => r.id === reconId);
+    if (!recon) return;
+
+    const prevPayments = recon.payments;
+    const nextPayments = recon.snapshot.transactions.map((_, i) =>
+      Boolean(recon.payments?.[i])
     );
+    nextPayments[txnIndex] = !nextPayments[txnIndex];
+
+    // Optimistic update.
+    setReconciliations((prev) =>
+      prev.map((r) =>
+        r.id === reconId ? { ...r, payments: nextPayments } : r
+      )
+    );
+
     try {
       const res = await fetch(`/api/reconciliations/${reconId}`, {
         method: "PATCH",
@@ -181,14 +196,31 @@ export function PaymentsView({
       </div>
 
       <div className="card">
-        <div className="card-header">
+        <div className="card-header flex-wrap gap-3">
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
-            👥 By Player
+            {mode === "player" ? "👥 By Player" : "🧾 By Reconciliation"}
             <span className="text-xs text-fg-dim font-mono">
-              ({summaries.length})
+              (
+              {mode === "player"
+                ? summaries.length
+                : reconciliations.length}
+              )
             </span>
           </h2>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
+            <FilterChip
+              active={mode === "player"}
+              onClick={() => setMode("player")}
+            >
+              By Player
+            </FilterChip>
+            <FilterChip
+              active={mode === "reconciliation"}
+              onClick={() => setMode("reconciliation")}
+            >
+              By Reconciliation
+            </FilterChip>
+            <span className="mx-1 w-px bg-border" aria-hidden />
             <FilterChip
               active={filter === "all"}
               onClick={() => setFilter("all")}
@@ -210,20 +242,40 @@ export function PaymentsView({
           </div>
         </div>
         <div className="card-body">
-          {summaries.length === 0 ? (
+          {mode === "player" ? (
+            summaries.length === 0 ? (
+              <div className="text-center py-8 text-fg-dim text-sm">
+                No players to display.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {summaries.map((s) => (
+                  <PlayerCard
+                    key={s.name}
+                    summary={s}
+                    expanded={expanded.has(s.name)}
+                    filter={filter}
+                    canWrite={canWrite}
+                    onToggleExpand={() => togglePlayer(s.name)}
+                    onTogglePayment={togglePayment}
+                  />
+                ))}
+              </div>
+            )
+          ) : reconciliations.length === 0 ? (
             <div className="text-center py-8 text-fg-dim text-sm">
-              No players to display.
+              No reconciliations to display.
             </div>
           ) : (
             <div className="space-y-3">
-              {summaries.map((s) => (
-                <PlayerCard
-                  key={s.name}
-                  summary={s}
-                  expanded={expanded.has(s.name)}
+              {reconciliations.map((r) => (
+                <ReconCard
+                  key={r.id}
+                  recon={r}
+                  expanded={expandedRecons.has(r.id)}
                   filter={filter}
                   canWrite={canWrite}
-                  onToggleExpand={() => togglePlayer(s.name)}
+                  onToggleExpand={() => toggleReconExpanded(r.id)}
                   onTogglePayment={togglePayment}
                 />
               ))}
@@ -278,9 +330,14 @@ function PlayerCard({
   const netPaid = summary.receivePaid - summary.owedPaid;
   const netOutstanding = net - netPaid;
   const isPositive = net >= 0;
+  const isSettled = Math.abs(netOutstanding) < 0.5;
 
   return (
-    <div className="card !mb-0">
+    <div
+      className={`card !mb-0 ${
+        isSettled ? "!bg-bg-subtle border-border-strong" : ""
+      }`}
+    >
       <div className="card-body pt-4 pb-4">
         <button
           type="button"
@@ -405,18 +462,28 @@ function PaymentList({
         {filtered.map((row) => {
           const counterpart = direction === "out" ? row.txn.to : row.txn.from;
           const arrow = direction === "out" ? "→" : "←";
+          const isReceive = direction === "in";
+          const tint = isReceive
+            ? "bg-success/15 border-success/40"
+            : "bg-danger/15 border-danger/40";
+          const locked = !canWrite || !!row.recon.completed;
           return (
             <label
               key={`${row.recon.id}-${row.txnIndex}`}
-              className={`flex items-center justify-between gap-3 p-3 rounded-[10px] bg-bg-elevated border border-border text-sm transition-opacity ${
+              className={`flex items-center justify-between gap-3 p-3 rounded-[10px] border text-sm text-fg transition-opacity ${tint} ${
                 row.paid ? "opacity-60" : ""
-              } ${canWrite ? "cursor-pointer" : ""}`}
+              } ${!locked ? "cursor-pointer" : ""}`}
+              title={
+                row.recon.completed
+                  ? "This reconciliation is completed (read-only)"
+                  : undefined
+              }
             >
               <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
                 <input
                   type="checkbox"
                   checked={row.paid}
-                  disabled={!canWrite}
+                  disabled={locked}
                   onChange={() => onTogglePayment(row.recon.id, row.txnIndex)}
                   className="w-4 h-4 accent-accent flex-shrink-0 disabled:cursor-not-allowed"
                   aria-label={`Mark payment as ${row.paid ? "unpaid" : "paid"}`}
@@ -427,18 +494,18 @@ function PaymentList({
                       row.paid ? "line-through" : ""
                     }`}
                   >
-                    <span className="text-fg-dim text-xs">{arrow}</span>
-                    <strong className="font-semibold truncate">
+                    <span className="text-fg text-xs font-semibold">{arrow}</span>
+                    <strong className="font-semibold truncate text-fg">
                       {counterpart}
                     </strong>
                   </div>
-                  <div className="text-[11px] text-fg-dim font-mono mt-0.5 truncate">
+                  <div className="text-[11px] text-fg font-mono mt-0.5 truncate opacity-80">
                     {row.recon.title}
                   </div>
                 </div>
               </div>
               <span
-                className={`font-mono font-semibold text-accent text-[15px] flex-shrink-0 ${
+                className={`font-mono font-semibold text-[15px] flex-shrink-0 text-fg ${
                   row.paid ? "line-through" : ""
                 }`}
               >
@@ -447,6 +514,174 @@ function PaymentList({
             </label>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function ReconCard({
+  recon,
+  expanded,
+  filter,
+  canWrite,
+  onToggleExpand,
+  onTogglePayment,
+}: {
+  recon: Reconciliation;
+  expanded: boolean;
+  filter: "all" | "outstanding" | "paid";
+  canWrite: boolean;
+  onToggleExpand: () => void;
+  onTogglePayment: (reconId: string, txnIndex: number) => void;
+}) {
+  const txns = recon.snapshot.transactions;
+  const totalAmount = txns.reduce((s, t) => s + t.amount, 0);
+  const paidAmount = txns.reduce(
+    (s, t, i) => (recon.payments?.[i] ? s + t.amount : s),
+    0
+  );
+  const outstandingAmount = totalAmount - paidAmount;
+  const paidCount = txns.reduce(
+    (s, _t, i) => s + (recon.payments?.[i] ? 1 : 0),
+    0
+  );
+  const isSettled = txns.length > 0 && paidCount === txns.length;
+
+  const filteredIndexes = txns
+    .map((_t, i) => i)
+    .filter((i) => {
+      const paid = !!recon.payments?.[i];
+      if (filter === "outstanding") return !paid;
+      if (filter === "paid") return paid;
+      return true;
+    });
+
+  return (
+    <div
+      className={`card !mb-0 ${
+        isSettled ? "!bg-bg-subtle border-border-strong" : ""
+      }`}
+    >
+      <div className="card-body pt-4 pb-4">
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="w-full text-left"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-display font-semibold text-[15px] truncate">
+                  {recon.title}
+                </span>
+                {recon.completed && (
+                  <span className="text-[10px] uppercase tracking-wider font-mono text-success border border-success/40 rounded-md px-1.5 py-0.5">
+                    Completed
+                  </span>
+                )}
+                <span className="text-xs text-fg-dim font-mono">
+                  {expanded ? "▾" : "▸"}
+                </span>
+              </div>
+              <div className="text-[11px] text-fg-dim font-mono mt-0.5">
+                {new Date(recon.createdAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+                {" · "}
+                {txns.length} settlement{txns.length === 1 ? "" : "s"}
+              </div>
+              <div className="flex flex-wrap gap-3.5 text-xs text-fg-muted font-mono mt-1.5">
+                <span>
+                  💵 ${formatDollar(totalAmount)} total
+                </span>
+                {paidAmount > 0 && (
+                  <span className="text-success">
+                    ✓ ${formatDollar(paidAmount)} paid
+                  </span>
+                )}
+                {outstandingAmount > 0 && (
+                  <span className="text-danger">
+                    ⏳ ${formatDollar(outstandingAmount)} outstanding
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div
+                className={`font-mono font-semibold text-[15px] ${
+                  isSettled ? "text-fg-dim" : "text-accent"
+                }`}
+              >
+                {isSettled ? "Settled" : `${paidCount}/${txns.length}`}
+              </div>
+              <div className="text-[10px] text-fg-dim font-mono uppercase tracking-wide mt-0.5">
+                {isSettled ? "all paid" : "paid"}
+              </div>
+            </div>
+          </div>
+        </button>
+
+        {expanded && (
+          <div className="mt-4 pt-3 border-t border-border space-y-2">
+            {filteredIndexes.length === 0 ? (
+              <div className="text-center py-3 text-xs text-fg-dim">
+                No settlements match this filter.
+              </div>
+            ) : (
+              filteredIndexes.map((i) => {
+                const t = txns[i];
+                const paid = !!recon.payments?.[i];
+                const locked = !canWrite || !!recon.completed;
+                return (
+                  <label
+                    key={i}
+                    className={`flex items-center justify-between gap-3 p-3 rounded-[10px] border text-sm text-fg transition-opacity ${
+                      paid
+                        ? "bg-success/15 border-success/40 opacity-80"
+                        : "bg-bg-elevated border-border"
+                    } ${!locked ? "cursor-pointer" : ""}`}
+                    title={
+                      recon.completed
+                        ? "Reconciliation is completed (read-only)"
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={paid}
+                        disabled={locked}
+                        onChange={() => onTogglePayment(recon.id, i)}
+                        className="w-4 h-4 accent-accent flex-shrink-0 disabled:cursor-not-allowed"
+                        aria-label={`Mark payment from ${t.from} to ${t.to} as ${
+                          paid ? "unpaid" : "paid"
+                        }`}
+                      />
+                      <div
+                        className={`flex items-center gap-2 flex-wrap min-w-0 ${
+                          paid ? "line-through" : ""
+                        }`}
+                      >
+                        <strong className="font-semibold text-fg">{t.from}</strong>
+                        <span className="text-fg text-xs font-semibold">→</span>
+                        <strong className="font-semibold text-fg">{t.to}</strong>
+                      </div>
+                    </div>
+                    <span
+                      className={`font-mono font-semibold text-[15px] flex-shrink-0 text-fg ${
+                        paid ? "line-through" : ""
+                      }`}
+                    >
+                      ${formatDollar(t.amount)}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

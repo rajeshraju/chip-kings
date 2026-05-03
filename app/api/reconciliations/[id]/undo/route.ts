@@ -35,6 +35,12 @@ export async function POST(
     if (!recon) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    if (recon.completed) {
+      return NextResponse.json(
+        { error: "Reconciliation is completed and cannot be undone" },
+        { status: 400 }
+      );
+    }
 
     const sources = recon.sourceReports ?? [];
     if (sources.length === 0) {
@@ -95,6 +101,9 @@ export async function POST(
       }
     }
 
+    // Remove the reconciliation record. Its payments[] (paid/unpaid status
+    // for each settlement) is part of the record and is dropped with it, so
+    // no payments survive the undo.
     await deleteReconciliation(params.id);
 
     return NextResponse.json({

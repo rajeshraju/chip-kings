@@ -85,6 +85,29 @@ export function ReportsView({
     }
   }
 
+  async function completeReconciliation(id: string) {
+    try {
+      const res = await fetch(`/api/reconciliations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: true }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        reconciliation?: Reconciliation;
+        error?: string;
+      };
+      if (!res.ok || !data.reconciliation) {
+        throw new Error(data.error || "Failed to complete");
+      }
+      setReconciliations((prev) =>
+        prev.map((r) => (r.id === id ? data.reconciliation! : r))
+      );
+      toast("Reconciliation completed ✓", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to complete", "error");
+    }
+  }
+
   async function saveReconTransactions(id: string, transactions: Transaction[]) {
     const res = await fetch(`/api/reconciliations/${id}`, {
       method: "PATCH",
@@ -116,6 +139,12 @@ export function ReportsView({
         error?: string;
       };
       if (!res.ok) throw new Error(data.error || "Undo failed");
+      // Drop any payment-tracking state tied to this reconciliation. Server
+      // payments[] are removed via record deletion; this clears the
+      // (legacy / defensive) localStorage entry too.
+      try {
+        localStorage.removeItem(`ck:paid:${id}`);
+      } catch {}
       setReconciliations((prev) => prev.filter((r) => r.id !== id));
       if (openReconId === id) setOpenReconId(null);
       // Refresh games list — sources were restored.
@@ -372,32 +401,65 @@ export function ReportsView({
             </ul>
           </div>
 
-          {canWrite && editingReconId !== openRecon.id && (
-            <div className="flex gap-2 mb-4 flex-wrap no-print">
-              <button
-                className="btn btn-secondary btn-small"
-                onClick={() => setEditingReconId(openRecon.id)}
-              >
-                ✏️ Edit Settlements
-              </button>
-              <button
-                className="btn btn-secondary btn-small"
-                onClick={() => setPendingUndoRecon(openRecon)}
-                disabled={
-                  !openRecon.sourceReports ||
-                  openRecon.sourceReports.length === 0
-                }
-                title={
-                  !openRecon.sourceReports ||
-                  openRecon.sourceReports.length === 0
-                    ? "No source games stored — cannot undo"
-                    : "Restore source games and delete this reconciliation"
-                }
-              >
-                ↶ Undo Reconciliation
-              </button>
+          {openRecon.completed && (
+            <div className="alert alert-success mb-4 flex items-center justify-between gap-3">
+              <span>
+                ✓ Completed
+                {openRecon.completedBy ? ` by ${openRecon.completedBy}` : ""}
+                {openRecon.completedAt
+                  ? ` on ${new Date(openRecon.completedAt).toLocaleDateString()}`
+                  : ""}
+              </span>
+              <span className="text-xs font-mono">read-only</span>
             </div>
           )}
+
+          {canWrite &&
+            !openRecon.completed &&
+            editingReconId !== openRecon.id && (() => {
+              const txns = openRecon.snapshot.transactions;
+              const allPaid =
+                txns.length > 0 &&
+                txns.every((_, i) => Boolean(openRecon.payments?.[i]));
+              return (
+                <div className="flex gap-2 mb-4 flex-wrap no-print">
+                  <button
+                    className="btn btn-secondary btn-small"
+                    onClick={() => setEditingReconId(openRecon.id)}
+                  >
+                    ✏️ Edit Settlements
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-small"
+                    onClick={() => setPendingUndoRecon(openRecon)}
+                    disabled={
+                      !openRecon.sourceReports ||
+                      openRecon.sourceReports.length === 0
+                    }
+                    title={
+                      !openRecon.sourceReports ||
+                      openRecon.sourceReports.length === 0
+                        ? "No source games stored — cannot undo"
+                        : "Restore source games and delete this reconciliation"
+                    }
+                  >
+                    ↶ Undo Reconciliation
+                  </button>
+                  <button
+                    className="btn btn-success btn-small"
+                    onClick={() => completeReconciliation(openRecon.id)}
+                    disabled={!allPaid}
+                    title={
+                      allPaid
+                        ? "Lock this reconciliation as completed (read-only)"
+                        : "All settlements must be paid before completing"
+                    }
+                  >
+                    ✓ COMPLETE
+                  </button>
+                </div>
+              );
+            })()}
 
           {editingReconId === openRecon.id ? (
             <ReconciliationEditor
@@ -419,7 +481,7 @@ export function ReportsView({
                 onPaymentsChange={(next) =>
                   updateReconPayments(openRecon.id, next)
                 }
-                paymentsDisabled={!canWrite}
+                paymentsDisabled={!canWrite || !!openRecon.completed}
               />
               <div className="mt-5">
                 <div className="font-display text-sm font-semibold text-fg-muted uppercase tracking-wide mb-3">
@@ -584,8 +646,15 @@ function ReconciliationCard({
       onClick={onView}
     >
       <div className="card-body pt-4 pb-4">
-        <div className="font-display font-semibold text-[15px]">
-          {recon.title}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="font-display font-semibold text-[15px]">
+            {recon.title}
+          </div>
+          {recon.completed && (
+            <span className="text-[10px] uppercase tracking-wider font-mono text-success border border-success/40 rounded-md px-1.5 py-0.5">
+              ✓ Completed
+            </span>
+          )}
         </div>
         <div className="text-xs text-fg-dim font-mono mt-0.5">
           {new Date(recon.createdAt).toLocaleString("en-US", {
