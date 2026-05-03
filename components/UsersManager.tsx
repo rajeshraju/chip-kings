@@ -6,6 +6,7 @@ import { toast } from "./Toaster";
 import { ViewToggle, type AdminView } from "./ViewToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PencilIcon, XIcon } from "./icons";
+import { refreshAfterSuccess } from "@/lib/refresh";
 
 type Props = {
   initialUsers: PublicUser[];
@@ -66,6 +67,7 @@ export function UsersManager({ initialUsers, currentUserId }: Props) {
       setPassword("");
       setRole("viewer");
       toast(`Created ${data.user!.username}`, "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Create failed", "error");
     } finally {
@@ -84,6 +86,7 @@ export function UsersManager({ initialUsers, currentUserId }: Props) {
       if (!res.ok) throw new Error(data.error || "Update failed");
       setUsers((prev) => prev.map((u) => (u.id === id ? data.user! : u)));
       toast("Updated", "success");
+      refreshAfterSuccess();
       return true;
     } catch (err) {
       toast(err instanceof Error ? err.message : "Update failed", "error");
@@ -98,6 +101,7 @@ export function UsersManager({ initialUsers, currentUserId }: Props) {
       if (!res.ok) throw new Error(data.error || "Delete failed");
       setUsers((prev) => prev.filter((u) => u.id !== id));
       toast("Deleted", "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Delete failed", "error");
     }
