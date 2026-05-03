@@ -7,6 +7,7 @@ import { PlayerRow } from "./PlayerRow";
 import { ResultsView } from "./ResultsView";
 import { ReconciliationEditor } from "./ReconciliationEditor";
 import { exportElementToPdf } from "@/lib/print";
+import { refreshAfterSuccess } from "@/lib/refresh";
 import { toast } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -80,6 +81,7 @@ export function ReportsView({
       });
       if (openReportId === id) setOpenReportId(null);
       toast("Game deleted", "success");
+      refreshAfterSuccess();
     } else {
       toast("Delete failed", "error");
     }
@@ -103,6 +105,7 @@ export function ReportsView({
         prev.map((r) => (r.id === id ? data.reconciliation! : r))
       );
       toast("Reconciliation completed ✓", "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to complete", "error");
     }
@@ -126,6 +129,7 @@ export function ReportsView({
     );
     setEditingReconId(null);
     toast("Reconciliation updated ✓", "success");
+    refreshAfterSuccess();
   }
 
   async function undoReconciliation(id: string) {
@@ -154,6 +158,7 @@ export function ReportsView({
         setReports(reports);
       }
       toast("Reconciliation undone ✓", "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Undo failed", "error");
     } finally {
@@ -213,6 +218,7 @@ export function ReportsView({
       setReconciliations((prev) => [data.reconciliation!, ...prev]);
       setSelected(new Set());
       toast("Reconciled ✓", "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Reconcile failed", "error");
     } finally {

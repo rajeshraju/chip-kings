@@ -6,6 +6,7 @@ import { toast } from "./Toaster";
 import { ViewToggle, type AdminView } from "./ViewToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PencilIcon, XIcon } from "./icons";
+import { refreshAfterSuccess } from "@/lib/refresh";
 
 type Props = {
   initialPlayers: Player[];
@@ -51,6 +52,7 @@ export function PlayersManager({ initialPlayers }: Props) {
       );
       setName("");
       toast(`Added ${data.player!.name}`, "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Create failed", "error");
     } finally {
@@ -73,6 +75,7 @@ export function PlayersManager({ initialPlayers }: Props) {
           .sort((a, b) => a.name.localeCompare(b.name))
       );
       toast("Updated", "success");
+      refreshAfterSuccess();
       return true;
     } catch (err) {
       toast(err instanceof Error ? err.message : "Update failed", "error");
@@ -87,6 +90,7 @@ export function PlayersManager({ initialPlayers }: Props) {
       if (!res.ok) throw new Error(data.error || "Delete failed");
       setPlayers((prev) => prev.filter((p) => p.id !== id));
       toast("Deleted", "success");
+      refreshAfterSuccess();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Delete failed", "error");
     }

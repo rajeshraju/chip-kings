@@ -2,19 +2,23 @@
 
 import { useState } from "react";
 import type { Player, PublicUser } from "@/lib/types";
+import type { Settings } from "@/lib/settings";
 import { UsersManager } from "./UsersManager";
 import { PlayersManager } from "./PlayersManager";
+import { SettingsManager } from "./SettingsManager";
 
-type Tab = "users" | "players";
+type Tab = "users" | "players" | "settings";
 
 export function AdminTabs({
   initialUsers,
   currentUserId,
   initialPlayers,
+  initialSettings,
 }: {
   initialUsers: PublicUser[];
   currentUserId: string;
   initialPlayers: Player[];
+  initialSettings: Settings;
 }) {
   const [tab, setTab] = useState<Tab>("users");
 
@@ -27,12 +31,19 @@ export function AdminTabs({
         <TabButton active={tab === "players"} onClick={() => setTab("players")}>
           🎲 Players ({initialPlayers.length})
         </TabButton>
+        <TabButton active={tab === "settings"} onClick={() => setTab("settings")}>
+          ⚙ Settings
+        </TabButton>
       </div>
 
-      {tab === "users" ? (
+      {tab === "users" && (
         <UsersManager initialUsers={initialUsers} currentUserId={currentUserId} />
-      ) : (
+      )}
+      {tab === "players" && (
         <PlayersManager initialPlayers={initialPlayers} />
+      )}
+      {tab === "settings" && (
+        <SettingsManager initialSettings={initialSettings} />
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import { PlayerRow } from "./PlayerRow";
 import { toast } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PromptDialog } from "./PromptDialog";
+import { refreshAfterSuccess } from "@/lib/refresh";
 
 function parseIsoDate(s: string): Date | null {
   const parts = s.split("-").map(Number);
@@ -25,7 +26,6 @@ function formatIsoDate(d: Date): string {
 }
 
 const DRAFT_KEY = "chip-kings-draft";
-const DEFAULT_CHIPS_TAKEN = 250;
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -33,6 +33,8 @@ type Props = {
   role: Role | null;
   playerNames: string[];
   editingReport?: Report | null;
+  defaultChipsTaken?: number;
+  chipsIncrement?: number;
 };
 
 function parseTitlePlace(title: string): string {
@@ -40,7 +42,13 @@ function parseTitlePlace(title: string): string {
   return match ? match[1].trim() : "";
 }
 
-export function Calculator({ role, playerNames, editingReport }: Props) {
+export function Calculator({
+  role,
+  playerNames,
+  editingReport,
+  defaultChipsTaken = 250,
+  chipsIncrement = 50,
+}: Props) {
   const isAuthenticated = role !== null;
   const canWrite = role === "admin" || role === "editor";
   const isEditing = !!editingReport;
@@ -54,7 +62,7 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
     editingReport ? parseTitlePlace(editingReport.title) : ""
   );
   const [name, setName] = useState("");
-  const [chipsTaken, setChipsTaken] = useState(String(DEFAULT_CHIPS_TAKEN));
+  const [chipsTaken, setChipsTaken] = useState(String(defaultChipsTaken));
   const [chipsLeft, setChipsLeft] = useState("");
   const [expenses, setExpenses] = useState("");
   const [potAmount, setPotAmount] = useState("");
@@ -117,7 +125,7 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
 
   function resetForm() {
     setName("");
-    setChipsTaken(String(DEFAULT_CHIPS_TAKEN));
+    setChipsTaken(String(defaultChipsTaken));
     setChipsLeft("");
     setExpenses("");
     setEditingIndex(-1);
@@ -196,7 +204,7 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
       return;
     }
     setName(p.name);
-    const taken = Number(p.chipsTaken ?? DEFAULT_CHIPS_TAKEN);
+    const taken = Number(p.chipsTaken ?? defaultChipsTaken);
     setChipsTaken(String(taken));
     setChipsLeft(String(taken + (Number(p.earnings) || 0)));
     setExpenses(p.expenses === 0 ? "" : String(p.expenses));
@@ -324,6 +332,8 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
       toast(isEditing ? "Game updated ✓" : "Game saved ✓", "success");
       if (isEditing) {
         window.location.href = "/reports";
+      } else {
+        refreshAfterSuccess();
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Save failed", "error");
@@ -471,12 +481,12 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
               <div className="flex items-stretch gap-1.5">
                 <button
                   type="button"
-                  aria-label="Decrease chips taken"
+                  aria-label={`Decrease chips taken by ${chipsIncrement}`}
                   className="input !w-11 !px-0 !py-0 grid place-items-center text-lg font-semibold select-none"
                   onClick={() => {
                     const cur = parseFloat(chipsTaken);
-                    const base = Number.isNaN(cur) ? DEFAULT_CHIPS_TAKEN : cur;
-                    setChipsTaken(String(Math.max(0, base - 50)));
+                    const base = Number.isNaN(cur) ? defaultChipsTaken : cur;
+                    setChipsTaken(String(Math.max(0, base - chipsIncrement)));
                   }}
                 >
                   −
@@ -492,12 +502,12 @@ export function Calculator({ role, playerNames, editingReport }: Props) {
                 />
                 <button
                   type="button"
-                  aria-label="Increase chips taken"
+                  aria-label={`Increase chips taken by ${chipsIncrement}`}
                   className="input !w-11 !px-0 !py-0 grid place-items-center text-lg font-semibold select-none"
                   onClick={() => {
                     const cur = parseFloat(chipsTaken);
-                    const base = Number.isNaN(cur) ? DEFAULT_CHIPS_TAKEN : cur;
-                    setChipsTaken(String(base + 50));
+                    const base = Number.isNaN(cur) ? defaultChipsTaken : cur;
+                    setChipsTaken(String(base + chipsIncrement));
                   }}
                 >
                   +
