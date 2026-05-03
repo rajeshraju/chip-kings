@@ -33,5 +33,12 @@ export default async function YtdPage() {
   });
 
   const allReports = [...reports, ...fromReconciled];
-  return <ReportTabs reports={allReports} potEntries={potEntries} />;
+  return (
+    <ReportTabs
+      reports={allReports}
+      potEntries={potEntries}
+      reconciliations={reconciliations}
+      role={session.role}
+    />
+  );
 }

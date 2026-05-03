@@ -1,8 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { formatDollar, summarizeYtd } from "@/lib/calc";
+import { useEffect, useMemo, useState } from "react";
+import { buildPeriodRange, formatDollar, summarizeYtd } from "@/lib/calc";
+import type { PeriodKind } from "@/lib/calc";
 import type { Report } from "@/lib/types";
+import { exportElementToPdf } from "@/lib/print";
+
+const PRINT_ID = "ytd-print-area";
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 export function YtdView({ reports }: { reports: Report[] }) {
   const availableYears = useMemo(() => {
@@ -16,31 +35,104 @@ export function YtdView({ reports }: { reports: Report[] }) {
     return Array.from(years).sort((a, b) => b - a);
   }, [reports]);
 
-  const [year, setYear] = useState<number>(availableYears[0] ?? new Date().getFullYear());
-  const summary = useMemo(() => summarizeYtd(reports, year), [reports, year]);
+  const [kind, setKind] = useState<PeriodKind>("year");
+  const [year, setYear] = useState<number>(
+    availableYears[0] ?? new Date().getFullYear()
+  );
+  const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
+  const [quarter, setQuarter] = useState<number>(
+    Math.floor(new Date().getMonth() / 3) + 1
+  );
+
+  // Keep year valid when reports change.
+  useEffect(() => {
+    if (!availableYears.includes(year)) {
+      setYear(availableYears[0] ?? new Date().getFullYear());
+    }
+  }, [availableYears, year]);
+
+  const range = useMemo(
+    () =>
+      buildPeriodRange(
+        kind,
+        year,
+        kind === "month" ? month : kind === "quarter" ? quarter : undefined
+      ),
+    [kind, year, month, quarter]
+  );
+
+  const summary = useMemo(() => summarizeYtd(reports, range), [reports, range]);
 
   const topNet = summary.players[0]?.net ?? 0;
   const bottomNet = summary.players[summary.players.length - 1]?.net ?? 0;
   const maxAbs = Math.max(Math.abs(topNet), Math.abs(bottomNet), 1);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id={PRINT_ID}>
       <div className="card">
-        <div className="card-header">
+        <div className="card-header flex-wrap gap-3">
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
-            📈 Year to Date
+            📈 {range.label}
           </h2>
-          <select
-            className="input !w-auto !py-1.5 !px-2.5 text-sm"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-          >
-            {availableYears.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-2 items-center no-print">
+            <select
+              className="input !w-auto !py-1.5 !px-2.5 text-sm"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as PeriodKind)}
+              aria-label="Period type"
+            >
+              <option value="year">Year</option>
+              <option value="quarter">Quarter</option>
+              <option value="month">Month</option>
+            </select>
+            {kind === "month" && (
+              <select
+                className="input !w-auto !py-1.5 !px-2.5 text-sm"
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                aria-label="Month"
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            )}
+            {kind === "quarter" && (
+              <select
+                className="input !w-auto !py-1.5 !px-2.5 text-sm"
+                value={quarter}
+                onChange={(e) => setQuarter(Number(e.target.value))}
+                aria-label="Quarter"
+              >
+                <option value={1}>Q1</option>
+                <option value={2}>Q2</option>
+                <option value={3}>Q3</option>
+                <option value={4}>Q4</option>
+              </select>
+            )}
+            <select
+              className="input !w-auto !py-1.5 !px-2.5 text-sm"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              aria-label="Year"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              onClick={() => exportElementToPdf(PRINT_ID, `YTD-${range.label}`)}
+              title="Export as PDF"
+            >
+              ⬇ PDF
+            </button>
+          </div>
         </div>
         <div className="card-body">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -85,7 +177,7 @@ export function YtdView({ reports }: { reports: Report[] }) {
           {summary.players.length === 0 ? (
             <div className="text-center py-10 text-fg-dim text-sm">
               <span className="block text-3xl mb-2">📭</span>
-              No reports saved in {year}.
+              No reports saved in {range.label}.
             </div>
           ) : (
             <div className="flex flex-col gap-2">

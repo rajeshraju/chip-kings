@@ -2,11 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { formatDollar, isPot } from "@/lib/calc";
-import type { Reconciliation, Report, Role } from "@/lib/types";
+import type { Reconciliation, Report, Role, Transaction } from "@/lib/types";
 import { PlayerRow } from "./PlayerRow";
 import { ResultsView } from "./ResultsView";
+import { ReconciliationEditor } from "./ReconciliationEditor";
+import { exportElementToPdf } from "@/lib/print";
 import { toast } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
+
+const REPORT_PRINT_ID = "report-modal-print-area";
+const RECON_PRINT_ID = "recon-modal-print-area";
 
 export function ReportsView({
   initialReports,
@@ -27,7 +32,9 @@ export function ReportsView({
   const [confirmReconcile, setConfirmReconcile] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [pendingDeleteReport, setPendingDeleteReport] = useState<Report | null>(null);
-  const [pendingDeleteRecon, setPendingDeleteRecon] = useState<Reconciliation | null>(null);
+  const [editingReconId, setEditingReconId] = useState<string | null>(null);
+  const [pendingUndoRecon, setPendingUndoRecon] = useState<Reconciliation | null>(null);
+  const [undoing, setUndoing] = useState(false);
   const canWrite = role === "admin" || role === "editor";
 
   const selectedReports = useMemo(
@@ -78,14 +85,81 @@ export function ReportsView({
     }
   }
 
-  async function removeReconciliation(id: string) {
-    const res = await fetch(`/api/reconciliations/${id}`, { method: "DELETE" });
-    if (res.ok) {
+  async function saveReconTransactions(id: string, transactions: Transaction[]) {
+    const res = await fetch(`/api/reconciliations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transactions }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      reconciliation?: Reconciliation;
+      error?: string;
+    };
+    if (!res.ok || !data.reconciliation) {
+      throw new Error(data.error || "Save failed");
+    }
+    setReconciliations((prev) =>
+      prev.map((r) => (r.id === id ? data.reconciliation! : r))
+    );
+    setEditingReconId(null);
+    toast("Reconciliation updated ✓", "success");
+  }
+
+  async function undoReconciliation(id: string) {
+    setUndoing(true);
+    try {
+      const res = await fetch(`/api/reconciliations/${id}/undo`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error || "Undo failed");
       setReconciliations((prev) => prev.filter((r) => r.id !== id));
       if (openReconId === id) setOpenReconId(null);
-      toast("Reconciliation deleted", "success");
-    } else {
-      toast("Delete failed", "error");
+      // Refresh games list — sources were restored.
+      const rRes = await fetch("/api/reports", { cache: "no-store" });
+      if (rRes.ok) {
+        const { reports } = (await rRes.json()) as { reports: Report[] };
+        setReports(reports);
+      }
+      toast("Reconciliation undone ✓", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Undo failed", "error");
+    } finally {
+      setUndoing(false);
+      setPendingUndoRecon(null);
+    }
+  }
+
+  async function updateReconPayments(id: string, next: boolean[]) {
+    let prevPayments: boolean[] | undefined;
+    setReconciliations((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        prevPayments = r.payments;
+        return { ...r, payments: next };
+      })
+    );
+    try {
+      const res = await fetch(`/api/reconciliations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payments: next }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const data = (await res.json()) as { reconciliation?: Reconciliation };
+      if (data.reconciliation) {
+        setReconciliations((prev) =>
+          prev.map((r) => (r.id === id ? data.reconciliation! : r))
+        );
+      }
+    } catch {
+      setReconciliations((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, payments: prevPayments } : r))
+      );
+      toast("Could not save payment", "error");
     }
   }
 
@@ -214,9 +288,7 @@ export function ReportsView({
                 <ReconciliationCard
                   key={r.id}
                   recon={r}
-                  canWrite={canWrite}
                   onView={() => setOpenReconId(r.id)}
-                  onDelete={() => setPendingDeleteRecon(r)}
                 />
               ))}
             </div>
@@ -226,7 +298,23 @@ export function ReportsView({
 
       {/* Game modal */}
       {openReport && (
-        <DetailModal title={openReport.title} onClose={() => setOpenReportId(null)}>
+        <DetailModal
+          title={openReport.title}
+          onClose={() => setOpenReportId(null)}
+          contentId={REPORT_PRINT_ID}
+          headerActions={
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              onClick={() =>
+                exportElementToPdf(REPORT_PRINT_ID, openReport.title)
+              }
+              title="Export as PDF"
+            >
+              ⬇ PDF
+            </button>
+          }
+        >
           <div className="text-xs text-fg-dim font-mono mb-4">
             {new Date(openReport.createdAt).toLocaleString()}
             {" · "}
@@ -248,7 +336,26 @@ export function ReportsView({
 
       {/* Reconciliation modal */}
       {openRecon && (
-        <DetailModal title={openRecon.title} onClose={() => setOpenReconId(null)}>
+        <DetailModal
+          title={openRecon.title}
+          onClose={() => {
+            setOpenReconId(null);
+            setEditingReconId(null);
+          }}
+          contentId={RECON_PRINT_ID}
+          headerActions={
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              onClick={() =>
+                exportElementToPdf(RECON_PRINT_ID, openRecon.title)
+              }
+              title="Export as PDF"
+            >
+              ⬇ PDF
+            </button>
+          }
+        >
           <div className="text-xs text-fg-dim font-mono mb-4">
             {new Date(openRecon.createdAt).toLocaleString()}
             {" · "}
@@ -264,13 +371,64 @@ export function ReportsView({
               ))}
             </ul>
           </div>
-          <ResultsView result={openRecon.snapshot} reportId={openRecon.id} />
-          <div className="mt-5">
-            <div className="font-display text-sm font-semibold text-fg-muted uppercase tracking-wide mb-3">
-              Per-Player Breakdown
+
+          {canWrite && editingReconId !== openRecon.id && (
+            <div className="flex gap-2 mb-4 flex-wrap no-print">
+              <button
+                className="btn btn-secondary btn-small"
+                onClick={() => setEditingReconId(openRecon.id)}
+              >
+                ✏️ Edit Settlements
+              </button>
+              <button
+                className="btn btn-secondary btn-small"
+                onClick={() => setPendingUndoRecon(openRecon)}
+                disabled={
+                  !openRecon.sourceReports ||
+                  openRecon.sourceReports.length === 0
+                }
+                title={
+                  !openRecon.sourceReports ||
+                  openRecon.sourceReports.length === 0
+                    ? "No source games stored — cannot undo"
+                    : "Restore source games and delete this reconciliation"
+                }
+              >
+                ↶ Undo Reconciliation
+              </button>
             </div>
-            <PerPlayerBreakdown recon={openRecon} />
-          </div>
+          )}
+
+          {editingReconId === openRecon.id ? (
+            <ReconciliationEditor
+              recon={openRecon}
+              onCancel={() => setEditingReconId(null)}
+              onSave={(transactions) =>
+                saveReconTransactions(openRecon.id, transactions)
+              }
+            />
+          ) : (
+            <>
+              <ResultsView
+                result={openRecon.snapshot}
+                reportId={openRecon.id}
+                payments={
+                  openRecon.payments ??
+                  openRecon.snapshot.transactions.map(() => false)
+                }
+                onPaymentsChange={(next) =>
+                  updateReconPayments(openRecon.id, next)
+                }
+                paymentsDisabled={!canWrite}
+              />
+              <div className="mt-5">
+                <div className="font-display text-sm font-semibold text-fg-muted uppercase tracking-wide mb-3">
+                  Per-Player Breakdown
+                </div>
+                <PerPlayerBreakdown recon={openRecon} />
+              </div>
+            </>
+          )}
         </DetailModal>
       )}
 
@@ -307,18 +465,16 @@ export function ReportsView({
         }}
       />
 
-      {/* Delete reconciliation confirm */}
+      {/* Undo reconciliation confirm */}
       <ConfirmDialog
-        open={!!pendingDeleteRecon}
-        danger
-        title="Delete reconciliation?"
-        message="This removes the reconciled record. The original games are not restored."
-        itemName={pendingDeleteRecon?.title}
-        confirmLabel="Delete reconciliation"
-        onCancel={() => setPendingDeleteRecon(null)}
+        open={!!pendingUndoRecon}
+        title="Undo reconciliation?"
+        message="The reconciled record will be deleted, the source games will be restored to Saved Games, and the pot ledger adjustments will be reversed."
+        itemName={pendingUndoRecon?.title}
+        confirmLabel={undoing ? "Undoing…" : "Undo"}
+        onCancel={() => !undoing && setPendingUndoRecon(null)}
         onConfirm={() => {
-          if (pendingDeleteRecon) removeReconciliation(pendingDeleteRecon.id);
-          setPendingDeleteRecon(null);
+          if (pendingUndoRecon) undoReconciliation(pendingUndoRecon.id);
         }}
       />
     </>
@@ -414,14 +570,10 @@ function ReportCard({
 
 function ReconciliationCard({
   recon,
-  canWrite,
   onView,
-  onDelete,
 }: {
   recon: Reconciliation;
-  canWrite: boolean;
   onView: () => void;
-  onDelete: () => void;
 }) {
   const s = recon.snapshot;
   const summary = useMemo(() => buildReconSummary(recon), [recon]);
@@ -523,11 +675,6 @@ function ReconciliationCard({
           <button className="btn btn-secondary btn-small" onClick={onView}>
             👁 View
           </button>
-          {canWrite && (
-            <button className="btn btn-danger btn-small" onClick={onDelete}>
-              🗑 Delete
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -677,10 +824,14 @@ function DetailModal({
   title,
   children,
   onClose,
+  headerActions,
+  contentId,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  headerActions?: React.ReactNode;
+  contentId?: string;
 }) {
   return (
     <div
@@ -691,18 +842,27 @@ function DetailModal({
         className="bg-bg-card border border-border rounded-[14px] max-w-2xl w-full max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-border flex justify-between items-center">
+        <div className="px-5 py-4 border-b border-border flex justify-between items-center gap-3 no-print">
           <div className="font-display text-lg font-semibold truncate">{title}</div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-[10px] bg-bg-elevated border border-border text-fg-muted hover:bg-bg-subtle grid place-items-center"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {headerActions}
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-[10px] bg-bg-elevated border border-border text-fg-muted hover:bg-bg-subtle grid place-items-center"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-        <div className="p-5 overflow-y-auto flex-1">{children}</div>
-        <div className="px-5 py-3.5 border-t border-border flex justify-end">
+        <div id={contentId} className="p-5 overflow-y-auto flex-1">
+          {/* Title repeated for print so the PDF has a heading. */}
+          <div className="hidden print:block font-display text-xl font-semibold mb-4">
+            {title}
+          </div>
+          {children}
+        </div>
+        <div className="px-5 py-3.5 border-t border-border flex justify-end no-print">
           <button onClick={onClose} className="btn btn-ghost">
             Close
           </button>

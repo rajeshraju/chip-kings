@@ -108,10 +108,58 @@ export type YtdSummary = {
   players: PlayerYtdRow[];
 };
 
-export function summarizeYtd(reports: Report[], year: number = new Date().getFullYear()): YtdSummary {
+export type PeriodKind = "year" | "quarter" | "month";
+
+export type PeriodRange = {
+  kind: PeriodKind;
+  year: number;
+  // 1-12 for month, 1-4 for quarter, ignored for year.
+  index?: number;
+  // Inclusive start / exclusive end timestamps the range covers.
+  start: number;
+  end: number;
+  label: string;
+};
+
+export function buildPeriodRange(
+  kind: PeriodKind,
+  year: number,
+  index?: number
+): PeriodRange {
+  if (kind === "month") {
+    const m = Math.max(1, Math.min(12, index ?? 1));
+    const start = new Date(year, m - 1, 1).getTime();
+    const end = new Date(year, m, 1).getTime();
+    const label = `${new Date(year, m - 1, 1).toLocaleString("en-US", {
+      month: "long",
+    })} ${year}`;
+    return { kind, year, index: m, start, end, label };
+  }
+  if (kind === "quarter") {
+    const q = Math.max(1, Math.min(4, index ?? 1));
+    const startMonth = (q - 1) * 3;
+    const start = new Date(year, startMonth, 1).getTime();
+    const end = new Date(year, startMonth + 3, 1).getTime();
+    return { kind, year, index: q, start, end, label: `Q${q} ${year}` };
+  }
+  const start = new Date(year, 0, 1).getTime();
+  const end = new Date(year + 1, 0, 1).getTime();
+  return { kind, year, start, end, label: String(year) };
+}
+
+export function summarizeYtd(
+  reports: Report[],
+  yearOrRange: number | PeriodRange = new Date().getFullYear()
+): YtdSummary {
+  const range =
+    typeof yearOrRange === "number"
+      ? buildPeriodRange("year", yearOrRange)
+      : yearOrRange;
   const inYear = reports.filter((r) => {
     const d = new Date(r.createdAt);
-    return !Number.isNaN(d.getTime()) && d.getFullYear() === year;
+    if (Number.isNaN(d.getTime())) return false;
+    const t = d.getTime();
+    return t >= range.start && t < range.end;
   });
 
   const byName = new Map<string, PlayerYtdRow>();
@@ -149,7 +197,7 @@ export function summarizeYtd(reports: Report[], year: number = new Date().getFul
   const totalExpenses = playerExpenses + potExpenses;
 
   return {
-    year,
+    year: range.year,
     gameCount: inYear.length,
     playerCount: players.length,
     totalEarnings,
