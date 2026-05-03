@@ -54,6 +54,9 @@ export type Reconciliation = {
   reportTitles: string[];
   sourceReports?: Report[];
   snapshot: CalculationResult;
+  // Payment status indexed by transaction position in snapshot.transactions.
+  // true = paid/settled. Missing or false = outstanding.
+  payments?: boolean[];
 };
 
 // --- Auth / users ---

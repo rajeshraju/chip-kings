@@ -83,6 +83,32 @@ export async function saveReconciliation(item: Reconciliation): Promise<Reconcil
   return item;
 }
 
+export async function updateReconciliationPayments(
+  id: string,
+  payments: boolean[]
+): Promise<Reconciliation | null> {
+  const items = await readAll();
+  const idx = items.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  const txnCount = items[idx].snapshot?.transactions?.length ?? 0;
+  const normalized = Array.from({ length: txnCount }, (_, i) => Boolean(payments[i]));
+  items[idx] = { ...items[idx], payments: normalized };
+  await writeAll(items);
+  return items[idx];
+}
+
+export async function replaceReconciliation(
+  id: string,
+  next: Reconciliation
+): Promise<Reconciliation | null> {
+  const items = await readAll();
+  const idx = items.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  items[idx] = next;
+  await writeAll(items);
+  return next;
+}
+
 export async function deleteReconciliation(id: string): Promise<boolean> {
   const items = await readAll();
   const next = items.filter((r) => r.id !== id);

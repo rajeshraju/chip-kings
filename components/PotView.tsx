@@ -3,6 +3,9 @@
 import { useMemo } from "react";
 import { formatDollar } from "@/lib/calc";
 import type { PotLedgerEntry } from "@/lib/types";
+import { exportElementToPdf } from "@/lib/print";
+
+const PRINT_ID = "pot-print-area";
 
 export function PotView({ entries }: { entries: PotLedgerEntry[] }) {
   const sorted = useMemo(
@@ -23,12 +26,20 @@ export function PotView({ entries }: { entries: PotLedgerEntry[] }) {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id={PRINT_ID}>
       <div className="card">
         <div className="card-header">
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
             💰 Pot Ledger
           </h2>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small no-print"
+            onClick={() => exportElementToPdf(PRINT_ID, "Pot-Ledger")}
+            title="Export as PDF"
+          >
+            ⬇ PDF
+          </button>
         </div>
         <div className="card-body">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

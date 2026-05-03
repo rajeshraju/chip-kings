@@ -40,7 +40,7 @@ export function Nav() {
   ];
 
   return (
-    <header className="mb-6">
+    <header className="mb-6 no-print">
       <div className="flex justify-between items-center gap-3 mb-5">
         <Link href="/" className="flex items-center gap-3">
           <Image

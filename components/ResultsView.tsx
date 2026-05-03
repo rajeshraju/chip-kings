@@ -9,37 +9,58 @@ const STORAGE_PREFIX = "ck:paid:";
 export function ResultsView({
   result,
   reportId,
+  payments,
+  onPaymentsChange,
+  paymentsDisabled,
 }: {
   result: CalculationResult;
   reportId?: string;
+  // Controlled mode: when payments + onPaymentsChange are provided, the parent
+  // is the source of truth (used for server-persisted reconciliation payments).
+  payments?: boolean[];
+  onPaymentsChange?: (next: boolean[]) => void;
+  paymentsDisabled?: boolean;
 }) {
   const isBalanced = Math.abs(result.totalNet) < 0.01;
-  const storageKey = reportId ? `${STORAGE_PREFIX}${reportId}` : null;
+  const controlled = Array.isArray(payments) && typeof onPaymentsChange === "function";
+  const storageKey = !controlled && reportId ? `${STORAGE_PREFIX}${reportId}` : null;
 
-  const [paid, setPaid] = useState<boolean[]>(() =>
+  const [paidLocal, setPaidLocal] = useState<boolean[]>(() =>
     result.transactions.map(() => false)
   );
 
   useEffect(() => {
+    if (controlled) return;
     if (!storageKey) {
-      setPaid(result.transactions.map(() => false));
+      setPaidLocal(result.transactions.map(() => false));
       return;
     }
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const saved = JSON.parse(raw) as boolean[];
-        setPaid(
+        setPaidLocal(
           result.transactions.map((_, i) => Boolean(saved[i]))
         );
         return;
       }
     } catch {}
-    setPaid(result.transactions.map(() => false));
-  }, [storageKey, result.transactions]);
+    setPaidLocal(result.transactions.map(() => false));
+  }, [storageKey, result.transactions, controlled]);
+
+  const paid = controlled
+    ? result.transactions.map((_, i) => Boolean(payments![i]))
+    : paidLocal;
 
   function toggle(i: number) {
-    setPaid((prev) => {
+    if (paymentsDisabled) return;
+    if (controlled) {
+      const next = result.transactions.map((_, idx) => Boolean(payments![idx]));
+      next[i] = !next[i];
+      onPaymentsChange!(next);
+      return;
+    }
+    setPaidLocal((prev) => {
       const next = prev.slice();
       next[i] = !next[i];
       if (storageKey) {
@@ -129,7 +150,8 @@ export function ResultsView({
                       type="checkbox"
                       checked={isPaid}
                       onChange={() => toggle(i)}
-                      className="w-4 h-4 accent-accent cursor-pointer flex-shrink-0"
+                      disabled={!!paymentsDisabled}
+                      className="w-4 h-4 accent-accent cursor-pointer flex-shrink-0 disabled:cursor-not-allowed"
                       aria-label={`Mark payment from ${t.from} to ${t.to} as paid`}
                     />
                     <div
