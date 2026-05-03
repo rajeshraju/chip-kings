@@ -57,6 +57,11 @@ export type Reconciliation = {
   // Payment status indexed by transaction position in snapshot.transactions.
   // true = paid/settled. Missing or false = outstanding.
   payments?: boolean[];
+  // Once marked complete, the reconciliation is view-only: no settlement
+  // edits, no undo, no payment-status toggles.
+  completed?: boolean;
+  completedAt?: string;
+  completedBy?: string;
 };
 
 // --- Auth / users ---

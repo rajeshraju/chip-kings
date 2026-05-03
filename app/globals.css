@@ -275,7 +275,34 @@ select {
   display: none;
 }
 
-/* --- Print / PDF export --- */
+/* --- PDF export (html2canvas snapshot mode) --- */
+body.pdf-export-mode {
+  --bg: 255 255 255;
+  --bg-elevated: 255 255 255;
+  --bg-card: 255 255 255;
+  --bg-subtle: 245 245 245;
+  --border: 200 200 200;
+  --border-strong: 160 160 160;
+  --fg: 17 17 17;
+  --fg-muted: 60 60 60;
+  --fg-dim: 90 90 90;
+  --accent: 110 80 0;
+  --accent-fg: 255 255 255;
+  --success: 0 110 60;
+  --danger: 160 30 30;
+  --warning: 140 90 0;
+  background: white !important;
+  color: black !important;
+}
+body.pdf-export-mode .no-print {
+  display: none !important;
+}
+body.pdf-export-mode .card {
+  box-shadow: none !important;
+  border-color: rgb(var(--border)) !important;
+}
+
+/* --- Print fallback (Ctrl+P) --- */
 @media print {
   :root {
     /* Force a light, ink-friendly palette so PDF output looks like a normal

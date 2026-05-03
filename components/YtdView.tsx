@@ -24,30 +24,43 @@ const MONTHS = [
 ];
 
 export function YtdView({ reports }: { reports: Report[] }) {
+  // Derived strictly from props so SSR and client agree. Current year is
+  // added in an effect after mount to avoid hydration mismatches caused by
+  // server/client clock or timezone differences.
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     for (const r of reports) {
       const d = new Date(r.createdAt);
       if (!Number.isNaN(d.getTime())) years.add(d.getFullYear());
     }
-    const current = new Date().getFullYear();
-    years.add(current);
     return Array.from(years).sort((a, b) => b - a);
   }, [reports]);
 
   const [kind, setKind] = useState<PeriodKind>("year");
-  const [year, setYear] = useState<number>(
-    availableYears[0] ?? new Date().getFullYear()
-  );
-  const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
-  const [quarter, setQuarter] = useState<number>(
-    Math.floor(new Date().getMonth() / 3) + 1
-  );
+  const [year, setYear] = useState<number>(() => availableYears[0] ?? 0);
+  const [month, setMonth] = useState<number>(1);
+  const [quarter, setQuarter] = useState<number>(1);
 
-  // Keep year valid when reports change.
+  // On mount, jump to the current month/quarter/year for convenience. Runs
+  // client-side only, so no SSR mismatch.
   useEffect(() => {
-    if (!availableYears.includes(year)) {
-      setYear(availableYears[0] ?? new Date().getFullYear());
+    const now = new Date();
+    setMonth(now.getMonth() + 1);
+    setQuarter(Math.floor(now.getMonth() / 3) + 1);
+    setYear((y) => {
+      if (y && availableYears.includes(y)) return y;
+      return availableYears.includes(now.getFullYear())
+        ? now.getFullYear()
+        : availableYears[0] ?? now.getFullYear();
+    });
+    // Mount-only effect; year-validity reconciliation is handled below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep year valid when reports list changes (e.g., refresh).
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(year)) {
+      setYear(availableYears[0]);
     }
   }, [availableYears, year]);
 
