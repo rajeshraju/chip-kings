@@ -95,7 +95,9 @@ export function Calculator({
   const [potAmount, setPotAmount] = useState("");
   const [editingIndex, setEditingIndex] = useState(-1);
   const [saving, setSaving] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearIntent, setClearIntent] = useState<"clear" | "new-game" | null>(
+    null
+  );
   const [pendingSave, setPendingSave] = useState<{
     defaultTitle: string;
     snapshot: CalculationResult;
@@ -245,7 +247,11 @@ export function Calculator({
   }
 
   function clearAll() {
-    setConfirmClear(true);
+    setClearIntent("clear");
+  }
+
+  function startNewGame() {
+    setClearIntent("new-game");
   }
 
   function performClearAll() {
@@ -257,7 +263,10 @@ export function Calculator({
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch {}
-    setConfirmClear(false);
+    setClearIntent(null);
+    if (isEditing) {
+      window.location.href = "/";
+    }
   }
 
   async function saveGame() {
@@ -387,6 +396,14 @@ export function Calculator({
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
             🎯 Game Details
           </h2>
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            onClick={startNewGame}
+            title="Clear current entries and start a fresh game"
+          >
+            New Game
+          </button>
         </div>
         <div className="card-body">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 items-end">
@@ -654,12 +671,18 @@ export function Calculator({
       </div>
 
       <ConfirmDialog
-        open={confirmClear}
+        open={clearIntent !== null}
         danger
-        title="Clear all players?"
-        message="This removes all players from the current session and resets the game details. Saved games are not affected."
-        confirmLabel="Clear all"
-        onCancel={() => setConfirmClear(false)}
+        title={
+          clearIntent === "new-game" ? "Start new game?" : "Clear all players?"
+        }
+        message={
+          clearIntent === "new-game"
+            ? "This clears the current session and starts a fresh game. Saved games are not affected."
+            : "This removes all players from the current session and resets the game details. Saved games are not affected."
+        }
+        confirmLabel={clearIntent === "new-game" ? "New Game" : "Clear all"}
+        onCancel={() => setClearIntent(null)}
         onConfirm={performClearAll}
       />
 
