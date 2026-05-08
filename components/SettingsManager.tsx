@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { Player, PotLedgerEntry } from "@/lib/types";
 import type { Settings } from "@/lib/settings";
+import { formatDollar } from "@/lib/calc";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { toast } from "./Toaster";
 import { refreshAfterSuccess } from "@/lib/refresh";
@@ -39,8 +41,12 @@ const RESET_OPTIONS: {
 
 export function SettingsManager({
   initialSettings,
+  players,
+  initialPotEntries,
 }: {
   initialSettings: Settings;
+  players: Player[];
+  initialPotEntries: PotLedgerEntry[];
 }) {
   const [initialChipsTaken, setInitialChipsTaken] = useState<string>(
     String(initialSettings.initialChipsTaken)
@@ -51,6 +57,40 @@ export function SettingsManager({
   const [saving, setSaving] = useState(false);
   const [pendingReset, setPendingReset] = useState<ResetTarget | null>(null);
   const [resetting, setResetting] = useState<ResetTarget | null>(null);
+
+  // --- Initialize Pot Balances state ---
+  const sortedPlayers = useMemo(
+    () => [...players].sort((a, b) => a.name.localeCompare(b.name)),
+    [players]
+  );
+  const initialPotMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of initialPotEntries) {
+      map[e.name.trim().toLowerCase()] = String(Math.round(e.amount));
+    }
+    return map;
+  }, [initialPotEntries]);
+  const [potAmounts, setPotAmounts] = useState<Record<string, string>>(() => {
+    const seed: Record<string, string> = {};
+    for (const p of players) {
+      seed[p.name.trim().toLowerCase()] = initialPotMap[p.name.trim().toLowerCase()] ?? "";
+    }
+    return seed;
+  });
+  const [savingPot, setSavingPot] = useState(false);
+  const [confirmInitPot, setConfirmInitPot] = useState(false);
+
+  const potTotals = useMemo(() => {
+    let owed = 0;
+    let receivable = 0;
+    for (const p of sortedPlayers) {
+      const v = Number(potAmounts[p.name.trim().toLowerCase()]);
+      if (!Number.isFinite(v)) continue;
+      if (v > 0) owed += v;
+      else if (v < 0) receivable += Math.abs(v);
+    }
+    return { owed, receivable, net: owed - receivable };
+  }, [sortedPlayers, potAmounts]);
 
   async function saveSettings() {
     const initial = parseInt(initialChipsTaken, 10);
@@ -89,6 +129,40 @@ export function SettingsManager({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function initializePot() {
+    setSavingPot(true);
+    try {
+      const entries = sortedPlayers
+        .map((p) => {
+          const raw = potAmounts[p.name.trim().toLowerCase()];
+          const amt = Number(raw);
+          return { name: p.name, amount: Number.isFinite(amt) ? amt : 0 };
+        })
+        .filter((e) => Math.abs(e.amount) >= 0.01);
+      const res = await fetch("/api/admin/pot/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        entries?: PotLedgerEntry[];
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error || "Initialize failed");
+      toast(`Pot initialized for ${entries.length} player${entries.length === 1 ? "" : "s"} ✓`, "success");
+      refreshAfterSuccess();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Initialize failed", "error");
+    } finally {
+      setSavingPot(false);
+      setConfirmInitPot(false);
+    }
+  }
+
+  function setPotAmount(playerKey: string, value: string) {
+    setPotAmounts((prev) => ({ ...prev, [playerKey]: value }));
   }
 
   async function performReset(target: ResetTarget) {
@@ -177,6 +251,121 @@ export function SettingsManager({
       <div className="card">
         <div className="card-header">
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
+            🏦 Initialize Pot Balances
+          </h2>
+        </div>
+        <div className="card-body space-y-4">
+          <div className="text-xs text-fg-muted">
+            Set each player&apos;s starting pot balance.{" "}
+            <strong className="text-fg">Positive</strong> = pot owes the player
+            (they receive from pot).{" "}
+            <strong className="text-fg">Negative</strong> = player owes the pot.
+            Saving replaces the entire pot ledger; players left blank or set to
+            zero are removed.
+          </div>
+
+          {sortedPlayers.length === 0 ? (
+            <div className="text-center py-6 text-fg-dim text-sm">
+              No players in the roster yet. Add players first.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {sortedPlayers.map((p) => {
+                  const key = p.name.trim().toLowerCase();
+                  const current = Number(initialPotMap[key] ?? 0);
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 px-3 py-2 rounded-[10px] bg-bg-elevated border border-border"
+                    >
+                      <strong className="font-semibold flex-1 truncate">
+                        {p.name}
+                      </strong>
+                      {Math.abs(current) >= 0.01 && (
+                        <span
+                          className={`text-[11px] font-mono ${
+                            current > 0 ? "text-success" : "text-danger"
+                          }`}
+                          title="Current ledger value"
+                        >
+                          now {current > 0 ? "+" : "−"}$
+                          {formatDollar(Math.abs(current))}
+                        </span>
+                      )}
+                      <input
+                        type="number"
+                        step="1"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={potAmounts[key] ?? ""}
+                        onChange={(e) => setPotAmount(key, e.target.value)}
+                        className="input !w-28 text-right font-mono"
+                        aria-label={`Pot balance for ${p.name}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="stat">
+                  <div className="stat-label">Pot Owes</div>
+                  <div className="stat-value text-success">
+                    ${formatDollar(potTotals.owed)}
+                  </div>
+                </div>
+                <div className="stat">
+                  <div className="stat-label">Owed to Pot</div>
+                  <div className="stat-value text-danger">
+                    ${formatDollar(potTotals.receivable)}
+                  </div>
+                </div>
+                <div className="stat">
+                  <div className="stat-label">Net</div>
+                  <div
+                    className={`stat-value ${
+                      potTotals.net >= 0 ? "text-success" : "text-danger"
+                    }`}
+                  >
+                    {potTotals.net >= 0 ? "+" : "−"}$
+                    {formatDollar(Math.abs(potTotals.net))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const cleared: Record<string, string> = {};
+                    for (const p of sortedPlayers) {
+                      cleared[p.name.trim().toLowerCase()] = "";
+                    }
+                    setPotAmounts(cleared);
+                  }}
+                  disabled={savingPot}
+                >
+                  Clear Form
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setConfirmInitPot(true)}
+                  disabled={savingPot}
+                >
+                  {savingPot ? "Applying…" : "Apply Balances"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
             🧹 Reset Data
           </h2>
         </div>
@@ -211,6 +400,15 @@ export function SettingsManager({
           ))}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmInitPot}
+        title="Apply pot balances?"
+        message="This replaces the entire pot ledger with the values shown above. Anyone not listed (or set to zero) will be removed. This cannot be undone."
+        confirmLabel={savingPot ? "Applying…" : "Apply"}
+        onCancel={() => !savingPot && setConfirmInitPot(false)}
+        onConfirm={() => initializePot()}
+      />
 
       <ConfirmDialog
         open={!!pendingReset}

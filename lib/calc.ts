@@ -27,12 +27,26 @@ export function calculatePayments(people: Person[]): CalculationResult | null {
   const avg = totalNet / people.length;
 
   const diffs = nets.map((p) => ({ name: p.name, difference: p.net - avg }));
+  // Sort non-POT entries before POT so the greedy matching pairs players with
+  // each other first. POT only participates after the non-POT pool is
+  // exhausted on its side, so a player owing POT and another player owed by
+  // POT settle directly via a player → player transaction whenever possible.
   const creditors = diffs
     .filter((d) => d.difference > 0.01)
-    .sort((a, b) => b.difference - a.difference);
+    .sort((a, b) => {
+      const aPot = isPot(a.name);
+      const bPot = isPot(b.name);
+      if (aPot !== bPot) return aPot ? 1 : -1;
+      return b.difference - a.difference;
+    });
   const debtors = diffs
     .filter((d) => d.difference < -0.01)
-    .sort((a, b) => a.difference - b.difference);
+    .sort((a, b) => {
+      const aPot = isPot(a.name);
+      const bPot = isPot(b.name);
+      if (aPot !== bPot) return aPot ? 1 : -1;
+      return a.difference - b.difference;
+    });
 
   const transactions: Transaction[] = [];
   let ci = 0;
@@ -102,7 +116,11 @@ export type YtdSummary = {
   gameCount: number;
   playerCount: number;
   totalEarnings: number;
+  totalWinnings: number;
+  totalLosses: number;
   totalExpenses: number;
+  playerExpenses: number;
+  potExpenses: number;
   totalPot: number;
   potBalance: number;
   players: PlayerYtdRow[];
@@ -193,6 +211,14 @@ export function summarizeYtd(
 
   const players = Array.from(byName.values()).sort((a, b) => b.net - a.net);
   const totalEarnings = players.reduce((s, p) => s + p.earnings, 0);
+  const totalWinnings = players.reduce(
+    (s, p) => (p.net > 0 ? s + p.net : s),
+    0
+  );
+  const totalLosses = players.reduce(
+    (s, p) => (p.net < 0 ? s + -p.net : s),
+    0
+  );
   const playerExpenses = players.reduce((s, p) => s + p.expenses, 0);
   const totalExpenses = playerExpenses + potExpenses;
 
@@ -201,7 +227,11 @@ export function summarizeYtd(
     gameCount: inYear.length,
     playerCount: players.length,
     totalEarnings,
+    totalWinnings,
+    totalLosses,
     totalExpenses,
+    playerExpenses,
+    potExpenses,
     totalPot: potEarnings,
     potBalance: potEarnings - potExpenses,
     players,

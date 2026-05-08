@@ -28,6 +28,11 @@ export type Report = {
   createdAt: string;
   createdBy: string;
   snapshot: CalculationResult;
+  // Set when the report has been folded into a reconciliation. Archived
+  // reports are hidden from the active games list but remain in storage so
+  // undo can restore them and YTD/history views can still see them.
+  archived?: boolean;
+  archivedAt?: string;
 };
 
 export type Player = {
@@ -62,6 +67,10 @@ export type Reconciliation = {
   completed?: boolean;
   completedAt?: string;
   completedBy?: string;
+  // True once every settlement has been marked paid AND each player's
+  // snapshot W/L has been applied to the pot ledger. Cleared if any
+  // settlement is later unchecked, so the W/L deltas are reversed.
+  potApplied?: boolean;
 };
 
 // --- Auth / users ---

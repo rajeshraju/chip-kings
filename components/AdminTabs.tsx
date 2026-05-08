@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Player, PublicUser } from "@/lib/types";
+import type { Player, PotLedgerEntry, PublicUser } from "@/lib/types";
 import type { Settings } from "@/lib/settings";
 import { UsersManager } from "./UsersManager";
 import { PlayersManager } from "./PlayersManager";
@@ -14,11 +14,13 @@ export function AdminTabs({
   currentUserId,
   initialPlayers,
   initialSettings,
+  initialPotEntries,
 }: {
   initialUsers: PublicUser[];
   currentUserId: string;
   initialPlayers: Player[];
   initialSettings: Settings;
+  initialPotEntries: PotLedgerEntry[];
 }) {
   const [tab, setTab] = useState<Tab>("users");
 
@@ -43,7 +45,11 @@ export function AdminTabs({
         <PlayersManager initialPlayers={initialPlayers} />
       )}
       {tab === "settings" && (
-        <SettingsManager initialSettings={initialSettings} />
+        <SettingsManager
+          initialSettings={initialSettings}
+          players={initialPlayers}
+          initialPotEntries={initialPotEntries}
+        />
       )}
     </div>
   );

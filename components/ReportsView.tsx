@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { formatDollar, isPot } from "@/lib/calc";
 import type { Reconciliation, Report, Role, Transaction } from "@/lib/types";
 import { PlayerRow } from "./PlayerRow";
@@ -16,17 +16,23 @@ const RECON_PRINT_ID = "recon-modal-print-area";
 
 export function ReportsView({
   initialReports,
+  initialArchivedReports = [],
   initialReconciliations,
   role,
 }: {
   initialReports: Report[];
+  initialArchivedReports?: Report[];
   initialReconciliations: Reconciliation[];
   role: Role;
 }) {
   const [reports, setReports] = useState<Report[]>(initialReports);
+  const [archivedReports, setArchivedReports] = useState<Report[]>(
+    initialArchivedReports
+  );
   const [reconciliations, setReconciliations] = useState<Reconciliation[]>(
     initialReconciliations
   );
+  const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openReportId, setOpenReportId] = useState<string | null>(null);
   const [openReconId, setOpenReconId] = useState<string | null>(null);
@@ -36,6 +42,8 @@ export function ReportsView({
   const [editingReconId, setEditingReconId] = useState<string | null>(null);
   const [pendingUndoRecon, setPendingUndoRecon] = useState<Reconciliation | null>(null);
   const [undoing, setUndoing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const canWrite = role === "admin" || role === "editor";
 
   const selectedReports = useMemo(
@@ -52,14 +60,26 @@ export function ReportsView({
     });
   }
 
+  function toggleSelectAll() {
+    setSelected((prev) =>
+      prev.size === reports.length && reports.length > 0
+        ? new Set()
+        : new Set(reports.map((r) => r.id))
+    );
+  }
+
   async function refresh() {
     const [rRes, recRes] = await Promise.all([
-      fetch("/api/reports", { cache: "no-store" }),
+      fetch("/api/reports?include=archived", { cache: "no-store" }),
       fetch("/api/reconciliations", { cache: "no-store" }),
     ]);
     if (rRes.ok) {
-      const { reports } = (await rRes.json()) as { reports: Report[] };
+      const { reports, archivedReports } = (await rRes.json()) as {
+        reports: Report[];
+        archivedReports?: Report[];
+      };
       setReports(reports);
+      setArchivedReports(archivedReports ?? []);
     }
     if (recRes.ok) {
       const { reconciliations } = (await recRes.json()) as {
@@ -111,11 +131,15 @@ export function ReportsView({
     }
   }
 
-  async function saveReconTransactions(id: string, transactions: Transaction[]) {
+  async function saveReconTransactions(
+    id: string,
+    transactions: Transaction[],
+    payments: boolean[]
+  ) {
     const res = await fetch(`/api/reconciliations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transactions }),
+      body: JSON.stringify({ transactions, payments }),
     });
     const data = (await res.json().catch(() => ({}))) as {
       reconciliation?: Reconciliation;
@@ -151,11 +175,17 @@ export function ReportsView({
       } catch {}
       setReconciliations((prev) => prev.filter((r) => r.id !== id));
       if (openReconId === id) setOpenReconId(null);
-      // Refresh games list — sources were restored.
-      const rRes = await fetch("/api/reports", { cache: "no-store" });
+      // Refresh both active and archived games — sources were unarchived.
+      const rRes = await fetch("/api/reports?include=archived", {
+        cache: "no-store",
+      });
       if (rRes.ok) {
-        const { reports } = (await rRes.json()) as { reports: Report[] };
+        const { reports, archivedReports } = (await rRes.json()) as {
+          reports: Report[];
+          archivedReports?: Report[];
+        };
         setReports(reports);
+        setArchivedReports(archivedReports ?? []);
       }
       toast("Reconciliation undone ✓", "success");
       refreshAfterSuccess();
@@ -214,7 +244,15 @@ export function ReportsView({
         throw new Error(data.error || "Reconcile failed");
       }
       const reconciledIds = new Set(data.reconciliation.reportIds);
+      const nowArchived = reports
+        .filter((r) => reconciledIds.has(r.id))
+        .map((r) => ({
+          ...r,
+          archived: true,
+          archivedAt: new Date().toISOString(),
+        }));
       setReports((prev) => prev.filter((r) => !reconciledIds.has(r.id)));
+      setArchivedReports((prev) => [...nowArchived, ...prev]);
       setReconciliations((prev) => [data.reconciliation!, ...prev]);
       setSelected(new Set());
       toast("Reconciled ✓", "success");
@@ -224,6 +262,59 @@ export function ReportsView({
     } finally {
       setReconciling(false);
       setConfirmReconcile(false);
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      toast("Only JSON files are accepted", "error");
+      return;
+    }
+    setImporting(true);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        toast("File is not valid JSON", "error");
+        return;
+      }
+      // Accept either an export bundle ({ reports: [...] }) or a bare array.
+      const payload = Array.isArray(parsed)
+        ? { reports: parsed }
+        : parsed && typeof parsed === "object" && Array.isArray((parsed as { reports?: unknown }).reports)
+        ? { reports: (parsed as { reports: unknown[] }).reports }
+        : null;
+      if (!payload) {
+        toast("JSON must contain a reports[] array", "error");
+        return;
+      }
+      const res = await fetch("/api/reports/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        added?: number;
+        invalid?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        toast(data.error || "Import failed", "error");
+        return;
+      }
+      const added = data.added ?? 0;
+      const invalid = data.invalid ?? 0;
+      const msg =
+        invalid > 0
+          ? `Imported ${added} game${added === 1 ? "" : "s"} (${invalid} skipped)`
+          : `Imported ${added} game${added === 1 ? "" : "s"} ✓`;
+      toast(msg, added > 0 ? "success" : "error");
+      if (added > 0) refreshAfterSuccess();
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
     }
   }
 
@@ -247,7 +338,10 @@ export function ReportsView({
     toast("Exported ✓", "success");
   }
 
-  const openReport = reports.find((r) => r.id === openReportId) || null;
+  const openReport =
+    reports.find((r) => r.id === openReportId) ||
+    archivedReports.find((r) => r.id === openReportId) ||
+    null;
   const openRecon =
     reconciliations.find((r) => r.id === openReconId) || null;
 
@@ -277,6 +371,28 @@ export function ReportsView({
             <button onClick={refresh} className="btn btn-ghost btn-small" title="Refresh">
               ↻
             </button>
+            {canWrite && (
+              <>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImportFile(file);
+                  }}
+                />
+                <button
+                  onClick={() => importInputRef.current?.click()}
+                  className="btn btn-ghost btn-small"
+                  title="Import games from JSON"
+                  disabled={importing}
+                >
+                  {importing ? "Importing…" : "⬆ Import"}
+                </button>
+              </>
+            )}
             <button onClick={exportAll} className="btn btn-ghost btn-small" title="Export">
               ⬇ Export
             </button>
@@ -289,22 +405,98 @@ export function ReportsView({
               No saved games yet. Finish a calculation and tap &ldquo;Save Game&rdquo;.
             </div>
           ) : (
-            <div className="space-y-3">
-              {reports.map((r) => (
-                <ReportCard
-                  key={r.id}
-                  report={r}
-                  selected={selected.has(r.id)}
-                  canWrite={canWrite}
-                  onToggleSelect={() => toggleSelect(r.id)}
-                  onView={() => setOpenReportId(r.id)}
-                  onDelete={() => setPendingDeleteReport(r)}
-                />
-              ))}
-            </div>
+            <>
+              {canWrite && (
+                <label className="flex items-center gap-2 mb-3 text-xs font-mono text-fg-muted cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-accent cursor-pointer"
+                    checked={
+                      selected.size === reports.length && reports.length > 0
+                    }
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate =
+                          selected.size > 0 && selected.size < reports.length;
+                      }
+                    }}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all games"
+                  />
+                  <span className="uppercase tracking-wide">
+                    {selected.size === reports.length && reports.length > 0
+                      ? "Clear selection"
+                      : "Select all"}
+                  </span>
+                </label>
+              )}
+              <div className="space-y-3">
+                {reports.map((r) => (
+                  <ReportCard
+                    key={r.id}
+                    report={r}
+                    selected={selected.has(r.id)}
+                    canWrite={canWrite}
+                    onToggleSelect={() => toggleSelect(r.id)}
+                    onView={() => setOpenReportId(r.id)}
+                    onDelete={() => setPendingDeleteReport(r)}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
+
+      {/* Archived games */}
+      {archivedReports.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              className="flex items-center gap-2 text-left"
+              aria-expanded={showArchived}
+            >
+              <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
+                📦 Archived Games
+                <span className="text-xs text-fg-dim font-mono">
+                  ({archivedReports.length})
+                </span>
+              </h2>
+              <span className="text-fg-dim text-xs font-mono">
+                {showArchived ? "▾" : "▸"}
+              </span>
+            </button>
+          </div>
+          {showArchived && (
+            <div className="card-body">
+              <div className="text-xs text-fg-dim mb-3">
+                Games that have been folded into a reconciliation. Restore by
+                undoing the parent reconciliation.
+              </div>
+              <div className="space-y-3">
+                {archivedReports.map((r) => {
+                  const parent = reconciliations.find((rec) =>
+                    rec.reportIds.includes(r.id)
+                  );
+                  return (
+                    <ArchivedReportCard
+                      key={r.id}
+                      report={r}
+                      parent={parent}
+                      onView={() => setOpenReportId(r.id)}
+                      onOpenParent={
+                        parent ? () => setOpenReconId(parent.id) : undefined
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reconciled */}
       {reconciliations.length > 0 && (
@@ -361,9 +553,11 @@ export function ReportsView({
               Players
             </div>
             <div className="flex flex-col gap-2">
-              {openReport.snapshot.people.map((p, i) => (
-                <PlayerRow key={`${p.name}-${i}`} person={p} index={i} readOnly />
-              ))}
+              {[...openReport.snapshot.people]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p, i) => (
+                  <PlayerRow key={`${p.name}-${i}`} person={p} index={i} readOnly />
+                ))}
             </div>
           </div>
         </DetailModal>
@@ -471,8 +665,8 @@ export function ReportsView({
             <ReconciliationEditor
               recon={openRecon}
               onCancel={() => setEditingReconId(null)}
-              onSave={(transactions) =>
-                saveReconTransactions(openRecon.id, transactions)
+              onSave={(transactions, payments) =>
+                saveReconTransactions(openRecon.id, transactions, payments)
               }
             />
           ) : (
@@ -636,6 +830,70 @@ function ReportCard({
   );
 }
 
+function ArchivedReportCard({
+  report,
+  parent,
+  onView,
+  onOpenParent,
+}: {
+  report: Report;
+  parent?: Reconciliation;
+  onView: () => void;
+  onOpenParent?: () => void;
+}) {
+  const s = report.snapshot;
+  return (
+    <div className="card !mb-0 transition-all hover:border-border-strong opacity-90">
+      <div className="card-body pt-4 pb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={onView}>
+            <div className="font-display font-semibold text-[15px] flex items-center gap-2">
+              {report.title}
+              <span className="text-[10px] uppercase tracking-wider font-mono text-fg-dim border border-border rounded-md px-1.5 py-0.5">
+                Archived
+              </span>
+            </div>
+            <div className="text-xs text-fg-dim font-mono mt-0.5">
+              {new Date(report.createdAt).toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              {" · "}
+              {report.createdBy}
+            </div>
+            <div className="flex flex-wrap gap-3.5 text-xs text-fg-muted font-mono mt-2">
+              <span>👥 {s.playerCount} players</span>
+              {s.hasPot && (
+                <span>
+                  💰 POT {s.potBalance >= 0 ? "+" : "−"}$
+                  {formatDollar(Math.abs(s.potBalance))}
+                </span>
+              )}
+              {parent && <span>⚖ {parent.title}</span>}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1.5 mt-3 pt-3 border-t border-border">
+          <button className="btn btn-secondary btn-small" onClick={onView}>
+            👁 View
+          </button>
+          {onOpenParent && (
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={onOpenParent}
+            >
+              ⚖ Open reconciliation
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReconciliationCard({
   recon,
   onView,
@@ -759,7 +1017,7 @@ function ReconciliationCard({
 function PerPlayerBreakdown({ recon }: { recon: Reconciliation }) {
   const sources = recon.sourceReports ?? [];
   const players = recon.snapshot.people.filter((p) => !isPot(p.name));
-  const sortedPlayers = [...players].sort((a, b) => b.earnings - a.earnings);
+  const sortedPlayers = [...players].sort((a, b) => a.name.localeCompare(b.name));
 
   if (sources.length === 0) {
     return (
@@ -769,9 +1027,11 @@ function PerPlayerBreakdown({ recon }: { recon: Reconciliation }) {
           before per-game tracking).
         </div>
         <div className="flex flex-col gap-2">
-          {recon.snapshot.people.map((p, i) => (
-            <PlayerRow key={`${p.name}-${i}`} person={p} index={i} readOnly />
-          ))}
+          {[...recon.snapshot.people]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((p, i) => (
+              <PlayerRow key={`${p.name}-${i}`} person={p} index={i} readOnly />
+            ))}
         </div>
       </>
     );

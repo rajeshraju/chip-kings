@@ -121,6 +121,30 @@ export async function deletePotEntry(name: string): Promise<boolean> {
   return true;
 }
 
+// Wholesale-replace the pot ledger with the given entries. Used by the admin
+// "Initialize Pot Balances" flow: anyone not in the input list is dropped,
+// and entries with a zero amount are filtered out so the file stays clean.
+export async function replacePotLedger(
+  entries: { name: string; amount: number }[]
+): Promise<PotLedgerEntry[]> {
+  const now = new Date().toISOString();
+  // Collapse duplicates by normalised name, keeping the last occurrence.
+  const byKey = new Map<string, PotLedgerEntry>();
+  for (const raw of entries) {
+    const name = String(raw.name ?? "").trim();
+    const amount = Number(raw.amount);
+    if (!name) continue;
+    if (!Number.isFinite(amount) || Math.abs(amount) < 0.01) {
+      byKey.delete(normalize(name));
+      continue;
+    }
+    byKey.set(normalize(name), { name, amount, updatedAt: now });
+  }
+  const next = Array.from(byKey.values());
+  await writeAll(next);
+  return next;
+}
+
 export async function purgeAllPotEntries(): Promise<void> {
   if (hasBlobToken()) await removeBlob();
   else {
@@ -130,6 +154,13 @@ export async function purgeAllPotEntries(): Promise<void> {
   }
 }
 
+// POT ledger total: amount owed TO the pot minus what the pot owes out.
+// Sign convention on each entry: amount > 0 means POT owes the player,
+// amount < 0 means the player owes POT — so summing the negatives' absolute
+// values minus the positives gives "owed to pot − pot owes".
 export function totalPotLedger(entries: PotLedgerEntry[]): number {
-  return entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  return entries.reduce(
+    (sum, e) => sum - (Number(e.amount) || 0),
+    0
+  );
 }

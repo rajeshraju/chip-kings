@@ -148,7 +148,7 @@ export function YtdView({ reports }: { reports: Report[] }) {
           </div>
         </div>
         <div className="card-body">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="stat">
               <div className="stat-label">Games</div>
               <div className="stat-value">{summary.gameCount}</div>
@@ -158,23 +158,16 @@ export function YtdView({ reports }: { reports: Report[] }) {
               <div className="stat-value">{summary.playerCount}</div>
             </div>
             <div className="stat">
-              <div className="stat-label">Total Pot</div>
-              <div className="stat-value">${formatDollar(summary.totalPot)}</div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">POT Balance</div>
-              <div
-                className={`stat-value ${
-                  summary.potBalance >= 0 ? "text-success" : "text-danger"
-                }`}
-              >
-                {summary.potBalance >= 0 ? "+" : "−"}$
-                {formatDollar(Math.abs(summary.potBalance))}
+              <div className="stat-label">Winnings</div>
+              <div className="stat-value text-success">
+                +${formatDollar(summary.totalWinnings)}
               </div>
             </div>
             <div className="stat">
-              <div className="stat-label">Expenses</div>
-              <div className="stat-value">${formatDollar(summary.totalExpenses)}</div>
+              <div className="stat-label">Losses</div>
+              <div className="stat-value text-danger">
+                −${formatDollar(summary.totalLosses)}
+              </div>
             </div>
           </div>
         </div>
@@ -231,6 +224,67 @@ export function YtdView({ reports }: { reports: Report[] }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
+            💸 Expenses
+          </h2>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div className="stat">
+              <div className="stat-label">Total Expenses</div>
+              <div className="stat-value">
+                ${formatDollar(summary.totalExpenses)}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Player Expenses</div>
+              <div className="stat-value">
+                ${formatDollar(summary.playerExpenses)}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">POT Expenses</div>
+              <div className="stat-value">
+                ${formatDollar(summary.potExpenses)}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Total Pot</div>
+              <div className="stat-value">
+                ${formatDollar(summary.totalPot)}
+              </div>
+            </div>
+          </div>
+
+          {summary.players.length === 0 ? (
+            <div className="text-center py-6 text-fg-dim text-sm">
+              No expenses recorded in {range.label}.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="text-xs uppercase tracking-wide text-fg-dim font-mono mb-1">
+                Per Player
+              </div>
+              {[...summary.players]
+                .sort((a, b) => b.expenses - a.expenses)
+                .map((p) => (
+                  <div
+                    key={p.name}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2 rounded-[10px] bg-bg-elevated border border-border text-sm"
+                  >
+                    <span className="truncate font-medium">{p.name}</span>
+                    <span className="font-mono font-semibold">
+                      ${formatDollar(p.expenses)}
+                    </span>
+                  </div>
+                ))}
             </div>
           )}
         </div>
