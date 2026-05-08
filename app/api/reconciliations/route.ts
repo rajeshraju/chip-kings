@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireCanWrite, requireSession } from "@/lib/auth";
-import { calculatePayments, combinePeople, isPot } from "@/lib/calc";
-import { deleteReport, getReport } from "@/lib/storage";
+import { calculatePayments, combinePeople } from "@/lib/calc";
+import { archiveReport, getReport } from "@/lib/storage";
 import { listReconciliations, saveReconciliation } from "@/lib/reconciliations";
-import { adjustPotEntry } from "@/lib/pot";
 import type { Reconciliation } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -77,21 +76,11 @@ export async function POST(request: Request) {
     };
 
     await saveReconciliation(item);
-    await Promise.all(found.map((r) => deleteReport(r.id)));
+    await Promise.all(found.map((r) => archiveReport(r.id)));
 
-    // Update pot ledger: each non-POT player's reconciled net W/L is added to
-    // their running pot balance (+ve = pot owes player, -ve = player owes pot).
-    const ledgerUpdates = combined
-      .filter((p) => !isPot(p.name))
-      .map((p) => ({ name: p.name, delta: Number(p.earnings) || 0 }))
-      .filter((u) => Math.abs(u.delta) >= 0.01);
-    for (const u of ledgerUpdates) {
-      try {
-        await adjustPotEntry(u.name, u.delta);
-      } catch (e) {
-        console.error(`[reconcile] pot adjust failed for ${u.name}:`, e);
-      }
-    }
+    // POT ledger is not updated at reconcile time. Paid settlement rows that
+    // involve POT are applied to that player when checked, and reversed if
+    // unchecked, edited, or undone.
 
     return NextResponse.json({ reconciliation: item }, { status: 201 });
   } catch (err) {

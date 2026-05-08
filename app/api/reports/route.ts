@@ -5,9 +5,18 @@ import type { CalculationResult, Report } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireSession();
+    const url = new URL(request.url);
+    const includeArchived = url.searchParams.get("include") === "archived";
+    if (includeArchived) {
+      const all = await listReports({ includeArchived: true });
+      return NextResponse.json({
+        reports: all.filter((r) => !r.archived),
+        archivedReports: all.filter((r) => r.archived),
+      });
+    }
     const reports = await listReports();
     return NextResponse.json({ reports });
   } catch (err) {

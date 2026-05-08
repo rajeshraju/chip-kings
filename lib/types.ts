@@ -28,6 +28,11 @@ export type Report = {
   createdAt: string;
   createdBy: string;
   snapshot: CalculationResult;
+  // Set when the report has been folded into a reconciliation. Archived
+  // reports are hidden from the active games list but remain in storage so
+  // undo can restore them and YTD/history views can still see them.
+  archived?: boolean;
+  archivedAt?: string;
 };
 
 export type Player = {
@@ -57,11 +62,17 @@ export type Reconciliation = {
   // Payment status indexed by transaction position in snapshot.transactions.
   // true = paid/settled. Missing or false = outstanding.
   payments?: boolean[];
+  // Payment rows involving POT that have already been applied to the pot
+  // ledger. Indexed by transaction position, same as payments[].
+  potPaymentApplied?: boolean[];
   // Once marked complete, the reconciliation is view-only: no settlement
   // edits, no undo, no payment-status toggles.
   completed?: boolean;
   completedAt?: string;
   completedBy?: string;
+  // Legacy flag from the old all-paid snapshot W/L pot-ledger workflow.
+  // Modern reconciliation payments use potPaymentApplied[] instead.
+  potApplied?: boolean;
 };
 
 // --- Auth / users ---

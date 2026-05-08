@@ -3,26 +3,79 @@ import { AuthError, requireCanWrite, requireSession } from "@/lib/auth";
 import {
   getReconciliation,
   replaceReconciliation,
-  updateReconciliationPayments,
 } from "@/lib/reconciliations";
-import { isPot, roundToDollar } from "@/lib/calc";
+import { isPot, netForPerson, roundToDollar } from "@/lib/calc";
 import { adjustPotEntry } from "@/lib/pot";
-import type { Transaction } from "@/lib/types";
+import type { Person, Transaction } from "@/lib/types";
 
-// Pot ledger semantics: amount > 0 means POT owes the player. So when POT
-// pays X (transaction POT→X), X's ledger entry decreases by the amount; when
-// X pays POT (X→POT), X's entry increases. Non-POT transactions don't touch
-// the pot ledger.
-function potDeltasFromTxns(txns: Transaction[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const t of txns) {
-    if (isPot(t.from)) {
-      map.set(t.to, (map.get(t.to) ?? 0) - t.amount);
-    } else if (isPot(t.to)) {
-      map.set(t.from, (map.get(t.from) ?? 0) + t.amount);
+// Reverse legacy reconciliations that already applied every player's snapshot
+// W/L to the pot ledger under the previous all-paid workflow.
+async function applySnapshotPotDeltas(people: Person[], sign: 1 | -1) {
+  for (const p of people) {
+    if (isPot(p.name)) continue;
+    const delta = sign * netForPerson(p);
+    if (Math.abs(delta) < 0.01) continue;
+    try {
+      await adjustPotEntry(p.name, delta);
+    } catch (e) {
+      console.error(
+        `[reconcile.payment] pot adjust failed for ${p.name}:`,
+        e
+      );
     }
   }
-  return map;
+}
+
+function potPaymentDelta(t: Transaction): { name: string; delta: number } | null {
+  const fromPot = isPot(t.from);
+  const toPot = isPot(t.to);
+  if (fromPot === toPot) return null;
+  const amount = roundToDollar(Number(t.amount) || 0);
+  if (!(amount > 0)) return null;
+  return fromPot
+    ? { name: t.to, delta: amount }
+    : { name: t.from, delta: -amount };
+}
+
+async function applyPotPaymentDelta(t: Transaction, sign: 1 | -1) {
+  const item = potPaymentDelta(t);
+  if (!item) return;
+  try {
+    await adjustPotEntry(item.name, sign * item.delta);
+  } catch (e) {
+    console.error(
+      `[reconcile.payment] pot payment adjust failed for ${item.name}:`,
+      e
+    );
+  }
+}
+
+async function syncPotPaymentDeltas({
+  previousTransactions,
+  previousApplied,
+  nextTransactions,
+  nextPayments,
+}: {
+  previousTransactions: Transaction[];
+  previousApplied: boolean[];
+  nextTransactions: Transaction[];
+  nextPayments: boolean[];
+}): Promise<boolean[]> {
+  for (let i = 0; i < previousTransactions.length; i++) {
+    if (previousApplied[i]) {
+      await applyPotPaymentDelta(previousTransactions[i], -1);
+    }
+  }
+
+  const nextApplied = nextTransactions.map((t, i) => {
+    return Boolean(nextPayments[i]) && potPaymentDelta(t) !== null;
+  });
+  for (let i = 0; i < nextTransactions.length; i++) {
+    if (nextApplied[i]) {
+      await applyPotPaymentDelta(nextTransactions[i], 1);
+    }
+  }
+  return nextApplied;
 }
 
 export const runtime = "nodejs";
@@ -87,7 +140,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ reconciliation: saved });
     }
 
-    // transactions update: edit who-pays-whom amounts; settle constraint applies.
+    // transactions update: edit who-pays-whom amounts.
     if (Array.isArray(body.transactions)) {
       const existing = await getReconciliation(params.id);
       if (!existing) {
@@ -137,24 +190,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         nextTxns.push({ from, to, amount });
       }
 
-      // Whole-reconciliation total check: the sum of new settlements must
-      // match the original total being settled. Players can be redistributed,
-      // but the aggregate amount moved through the reconciliation cannot drift.
-      const originalTotal = existing.snapshot.transactions.reduce(
-        (s, t) => s + Number(t.amount || 0),
-        0
-      );
-      const newTotal = nextTxns.reduce((s, t) => s + t.amount, 0);
-      if (Math.abs(newTotal - originalTotal) >= 1) {
-        return NextResponse.json(
-          {
-            error: `Reconciliation total must equal $${Math.round(
-              originalTotal
-            )} (current: $${Math.round(newTotal)})`,
-          },
-          { status: 400 }
-        );
+      // The editor may also pass payments[] alongside transactions[] so the
+      // user can toggle paid/unpaid in the same save. Paid rows involving POT
+      // are applied directly to that player's pot ledger and tracked so edits
+      // can reverse/reapply them safely.
+      const prevTxns = existing.snapshot.transactions;
+      const prevPayments = existing.payments ?? [];
+
+      let nextPayments: boolean[];
+      if (Array.isArray(body.payments)) {
+        const rawPayments = body.payments as unknown[];
+        nextPayments = nextTxns.map((_, i) => Boolean(rawPayments[i]));
+      } else {
+        nextPayments = nextTxns.map((_, i) => Boolean(prevPayments[i]));
       }
+
+      let nextPotApplied = Boolean(existing.potApplied);
+      if (nextPotApplied) {
+        await applySnapshotPotDeltas(existing.snapshot.people, -1);
+        nextPotApplied = false;
+      }
+      const nextPotPaymentApplied = await syncPotPaymentDeltas({
+        previousTransactions: prevTxns,
+        previousApplied: existing.potPaymentApplied ?? [],
+        nextTransactions: nextTxns,
+        nextPayments,
+      });
 
       const updated = {
         ...existing,
@@ -162,31 +223,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           ...existing.snapshot,
           transactions: nextTxns,
         },
-        // Reset payment status — settlements changed.
-        payments: nextTxns.map(() => false),
+        payments: nextPayments,
+        potApplied: nextPotApplied,
+        potPaymentApplied: nextPotPaymentApplied,
       };
       const saved = await replaceReconciliation(params.id, updated);
       if (!saved) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
-      }
-
-      // Apply the diff between old and new POT-involved settlements to the
-      // per-player pot ledger so balances reflect the edited cash flow.
-      const oldDeltas = potDeltasFromTxns(existing.snapshot.transactions);
-      const newDeltas = potDeltasFromTxns(nextTxns);
-      const names = new Set<string>([
-        ...oldDeltas.keys(),
-        ...newDeltas.keys(),
-      ]);
-      for (const name of names) {
-        const net = (newDeltas.get(name) ?? 0) - (oldDeltas.get(name) ?? 0);
-        if (Math.abs(net) >= 0.01) {
-          try {
-            await adjustPotEntry(name, net);
-          } catch (e) {
-            console.error(`[reconcile.edit] pot adjust failed for ${name}:`, e);
-          }
-        }
       }
 
       return NextResponse.json({ reconciliation: saved });
@@ -209,8 +252,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         { status: 400 }
       );
     }
-    const payments = body.payments.map((v) => Boolean(v));
-    const updated = await updateReconciliationPayments(params.id, payments);
+
+    const rawPayments = body.payments as unknown[];
+    const txns = existingForPayments.snapshot.transactions;
+    const newPayments = txns.map((_, i) => Boolean(rawPayments[i]));
+
+    let nextPotApplied = Boolean(existingForPayments.potApplied);
+    if (nextPotApplied) {
+      await applySnapshotPotDeltas(
+        existingForPayments.snapshot.people,
+        -1
+      );
+      nextPotApplied = false;
+    }
+    const nextPotPaymentApplied = await syncPotPaymentDeltas({
+      previousTransactions: txns,
+      previousApplied: existingForPayments.potPaymentApplied ?? [],
+      nextTransactions: txns,
+      nextPayments: newPayments,
+    });
+
+    const updated = await replaceReconciliation(params.id, {
+      ...existingForPayments,
+      payments: newPayments,
+      potApplied: nextPotApplied,
+      potPaymentApplied: nextPotPaymentApplied,
+    });
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

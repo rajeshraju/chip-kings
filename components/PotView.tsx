@@ -19,7 +19,10 @@ export function PotView({ entries }: { entries: PotLedgerEntry[] }) {
   const owedToPot = entries
     .filter((e) => e.amount < 0)
     .reduce((s, e) => s + Math.abs(e.amount), 0);
-  const net = owedByPot - owedToPot;
+  // POT ledger total = owed TO POT − POT owes. Positive means players
+  // collectively owe the pot (pot is in surplus); negative means the pot
+  // owes more out than it has coming in.
+  const net = owedToPot - owedByPot;
   const maxAbs = Math.max(
     ...entries.map((e) => Math.abs(e.amount)),
     1

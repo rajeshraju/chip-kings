@@ -589,15 +589,18 @@ export function Calculator({
                 No players yet. Add someone using the form.
               </div>
             ) : (
-              people.map((p, i) => (
-                <PlayerRow
-                  key={`${p.name}-${i}`}
-                  person={p}
-                  index={i}
-                  onEdit={editPerson}
-                  onRemove={removePerson}
-                />
-              ))
+              people
+                .map((p, i) => ({ p, i }))
+                .sort((a, b) => a.p.name.localeCompare(b.p.name))
+                .map(({ p, i }) => (
+                  <PlayerRow
+                    key={`${p.name}-${i}`}
+                    person={p}
+                    index={i}
+                    onEdit={editPerson}
+                    onRemove={removePerson}
+                  />
+                ))
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-2.5">

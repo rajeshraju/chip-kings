@@ -1,17 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatDollar } from "@/lib/calc";
 import type { Reconciliation, Transaction } from "@/lib/types";
 
 type Draft = {
   from: string;
   to: string;
   amount: string;
+  paid: boolean;
 };
 
-function toDraft(t: Transaction): Draft {
-  return { from: t.from, to: t.to, amount: String(Math.round(t.amount)) };
+function toDraft(t: Transaction, paid: boolean): Draft {
+  return { from: t.from, to: t.to, amount: String(Math.round(t.amount)), paid };
 }
 
 function toTransaction(d: Draft): Transaction {
@@ -29,46 +29,29 @@ export function ReconciliationEditor({
 }: {
   recon: Reconciliation;
   onCancel: () => void;
-  onSave: (transactions: Transaction[]) => Promise<void>;
+  onSave: (transactions: Transaction[], payments: boolean[]) => Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<Draft[]>(() =>
-    recon.snapshot.transactions.map(toDraft)
+    recon.snapshot.transactions.map((t, i) =>
+      toDraft(t, Boolean(recon.payments?.[i]))
+    )
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const playerNames = useMemo(
-    () => recon.snapshot.people.map((p) => p.name.trim()),
+    () =>
+      recon.snapshot.people
+        .map((p) => p.name.trim())
+        .sort((a, b) => a.localeCompare(b)),
     [recon.snapshot.people]
   );
-
-  // Whole-reconciliation total: original sum of settlement amounts. The new
-  // settlements may redistribute who-pays-whom, but the aggregate must match.
-  const originalTotal = useMemo(
-    () =>
-      recon.snapshot.transactions.reduce(
-        (s, t) => s + (Number(t.amount) || 0),
-        0
-      ),
-    [recon.snapshot.transactions]
-  );
-
-  const currentTotal = useMemo(
-    () =>
-      drafts.reduce((s, d) => {
-        const amt = Math.round(Number(d.amount) || 0);
-        return s + (amt > 0 ? amt : 0);
-      }, 0),
-    [drafts]
-  );
-
-  const totalsMatch = Math.abs(currentTotal - originalTotal) < 1;
 
   const draftsValid = drafts.every((d) => {
     const amt = Math.round(Number(d.amount) || 0);
     return amt > 0 && d.from && d.to && d.from !== d.to;
   });
-  const canSave = drafts.length > 0 && draftsValid && totalsMatch && !saving;
+  const canSave = drafts.length > 0 && draftsValid && !saving;
 
   function update(i: number, patch: Partial<Draft>) {
     setDrafts((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -85,6 +68,7 @@ export function ReconciliationEditor({
         from: playerNames[0] ?? "",
         to: playerNames[1] ?? playerNames[0] ?? "",
         amount: "0",
+        paid: false,
       },
     ]);
   }
@@ -94,7 +78,10 @@ export function ReconciliationEditor({
     setSaving(true);
     setError(null);
     try {
-      await onSave(drafts.map(toTransaction));
+      await onSave(
+        drafts.map(toTransaction),
+        drafts.map((d) => d.paid)
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -109,26 +96,10 @@ export function ReconciliationEditor({
           Edit Settlements
         </div>
         <div className="text-xs text-fg-dim mb-4">
-          Adjust how much each player pays whom. Save is enabled when the
-          total settled amount equals the original reconciliation total —
-          you can redistribute who-pays-whom freely.
-        </div>
-
-        <div
-          className={`alert ${totalsMatch ? "alert-success" : "alert-warning"} mb-4 flex items-center justify-between gap-3`}
-        >
-          <span>
-            {totalsMatch ? (
-              <>✓ Reconciliation total matches — ready to save</>
-            ) : (
-              <>
-                ⚠ Off by ${formatDollar(Math.abs(currentTotal - originalTotal))}
-              </>
-            )}
-          </span>
-          <span className="font-mono text-xs">
-            ${formatDollar(currentTotal)} / ${formatDollar(originalTotal)}
-          </span>
+          Add as many settlements as you need — including multiple payments
+          between the same two players, or chained routes (A → C → B). Tick
+          the Paid box on a row to mark it settled — rows paid from or to POT
+          update that player&apos;s pot balance using the row amount.
         </div>
 
         {/* Editable transaction rows */}
@@ -141,8 +112,23 @@ export function ReconciliationEditor({
             drafts.map((d, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 items-center p-2.5 rounded-[10px] bg-bg-elevated border border-border"
+                className="grid grid-cols-[auto_1fr_auto_1fr_auto_auto] gap-2 items-center p-2.5 rounded-[10px] bg-bg-elevated border border-border"
               >
+                <label
+                  className="flex flex-col gap-1 items-center"
+                  title="Mark this settlement as paid"
+                >
+                  <span className="text-[10px] uppercase tracking-wide font-mono text-fg-dim">
+                    Paid
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={d.paid}
+                    onChange={(e) => update(i, { paid: e.target.checked })}
+                    className="w-4 h-4 accent-accent cursor-pointer"
+                    aria-label={`Mark settlement ${i + 1} as paid`}
+                  />
+                </label>
                 <PlayerSelect
                   label="From"
                   value={d.from}
