@@ -78,9 +78,9 @@ export async function POST(request: Request) {
     await saveReconciliation(item);
     await Promise.all(found.map((r) => archiveReport(r.id)));
 
-    // POT ledger is not updated at reconcile time. Per-player W/L is credited
-    // to the pot ledger incrementally as each settlement's payment is marked
-    // checked, and reversed if it is unchecked or the recon is undone.
+    // POT ledger is not updated at reconcile time. Paid settlement rows that
+    // involve POT are applied to that player when checked, and reversed if
+    // unchecked, edited, or undone.
 
     return NextResponse.json({ reconciliation: item }, { status: 201 });
   } catch (err) {

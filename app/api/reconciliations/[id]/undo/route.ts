@@ -6,9 +6,20 @@ import {
 } from "@/lib/reconciliations";
 import { getReport, saveReport, unarchiveReport } from "@/lib/storage";
 import { adjustPotEntry } from "@/lib/pot";
-import { isPot, netForPerson } from "@/lib/calc";
+import { isPot, netForPerson, roundToDollar } from "@/lib/calc";
 
 export const runtime = "nodejs";
+
+function potPaymentDelta(from: string, to: string, amount: number) {
+  const fromPot = isPot(from);
+  const toPot = isPot(to);
+  if (fromPot === toPot) return null;
+  const rounded = roundToDollar(amount);
+  if (!(rounded > 0)) return null;
+  return fromPot
+    ? { name: to, delta: rounded }
+    : { name: from, delta: -rounded };
+}
 
 export async function POST(
   _req: Request,
@@ -56,10 +67,8 @@ export async function POST(
       }
     }
 
-    // Reverse the snapshot W/L deltas if they were applied (i.e., the recon
-    // had reached "all settlements paid" state). Modern reconciliations
-    // apply W/L to the pot ledger as a single transition rather than per
-    // settlement, so undoing only needs to reverse those once.
+    // Reverse legacy snapshot W/L deltas if this reconciliation applied them
+    // under the previous all-paid workflow.
     if (recon.potApplied) {
       for (const p of recon.snapshot.people) {
         if (isPot(p.name)) continue;
@@ -73,6 +82,24 @@ export async function POST(
             e
           );
         }
+      }
+    }
+
+    // Reverse any row-level POT payments that were applied while payment
+    // checkboxes were toggled.
+    const potPaymentApplied = recon.potPaymentApplied ?? [];
+    for (let i = 0; i < recon.snapshot.transactions.length; i++) {
+      if (!potPaymentApplied[i]) continue;
+      const t = recon.snapshot.transactions[i];
+      const item = potPaymentDelta(t.from, t.to, t.amount);
+      if (!item) continue;
+      try {
+        await adjustPotEntry(item.name, -item.delta);
+      } catch (e) {
+        console.error(
+          `[reconcile.undo] pot payment reverse failed for ${item.name}:`,
+          e
+        );
       }
     }
 

@@ -62,14 +62,16 @@ export type Reconciliation = {
   // Payment status indexed by transaction position in snapshot.transactions.
   // true = paid/settled. Missing or false = outstanding.
   payments?: boolean[];
+  // Payment rows involving POT that have already been applied to the pot
+  // ledger. Indexed by transaction position, same as payments[].
+  potPaymentApplied?: boolean[];
   // Once marked complete, the reconciliation is view-only: no settlement
   // edits, no undo, no payment-status toggles.
   completed?: boolean;
   completedAt?: string;
   completedBy?: string;
-  // True once every settlement has been marked paid AND each player's
-  // snapshot W/L has been applied to the pot ledger. Cleared if any
-  // settlement is later unchecked, so the W/L deltas are reversed.
+  // Legacy flag from the old all-paid snapshot W/L pot-ledger workflow.
+  // Modern reconciliation payments use potPaymentApplied[] instead.
   potApplied?: boolean;
 };
 

@@ -8,17 +8,8 @@ import { isPot, netForPerson, roundToDollar } from "@/lib/calc";
 import { adjustPotEntry } from "@/lib/pot";
 import type { Person, Transaction } from "@/lib/types";
 
-function isAllPaid(transactions: Transaction[], payments: boolean[]): boolean {
-  if (transactions.length === 0) return false;
-  return transactions.every((_, i) => Boolean(payments[i]));
-}
-
-// Apply each non-POT player's snapshot W/L to their pot ledger. Called when a
-// reconciliation transitions to "all settlements paid" — at that point each
-// player's pot balance changes by exactly their net for the reconciliation,
-// regardless of how the cash actually moved between players in settlements.
-// Any deviation between settlement totals and snapshot W/L is implicitly
-// absorbed by the pot ledger (POT covers the difference).
+// Reverse legacy reconciliations that already applied every player's snapshot
+// W/L to the pot ledger under the previous all-paid workflow.
 async function applySnapshotPotDeltas(people: Person[], sign: 1 | -1) {
   for (const p of people) {
     if (isPot(p.name)) continue;
@@ -33,6 +24,58 @@ async function applySnapshotPotDeltas(people: Person[], sign: 1 | -1) {
       );
     }
   }
+}
+
+function potPaymentDelta(t: Transaction): { name: string; delta: number } | null {
+  const fromPot = isPot(t.from);
+  const toPot = isPot(t.to);
+  if (fromPot === toPot) return null;
+  const amount = roundToDollar(Number(t.amount) || 0);
+  if (!(amount > 0)) return null;
+  return fromPot
+    ? { name: t.to, delta: amount }
+    : { name: t.from, delta: -amount };
+}
+
+async function applyPotPaymentDelta(t: Transaction, sign: 1 | -1) {
+  const item = potPaymentDelta(t);
+  if (!item) return;
+  try {
+    await adjustPotEntry(item.name, sign * item.delta);
+  } catch (e) {
+    console.error(
+      `[reconcile.payment] pot payment adjust failed for ${item.name}:`,
+      e
+    );
+  }
+}
+
+async function syncPotPaymentDeltas({
+  previousTransactions,
+  previousApplied,
+  nextTransactions,
+  nextPayments,
+}: {
+  previousTransactions: Transaction[];
+  previousApplied: boolean[];
+  nextTransactions: Transaction[];
+  nextPayments: boolean[];
+}): Promise<boolean[]> {
+  for (let i = 0; i < previousTransactions.length; i++) {
+    if (previousApplied[i]) {
+      await applyPotPaymentDelta(previousTransactions[i], -1);
+    }
+  }
+
+  const nextApplied = nextTransactions.map((t, i) => {
+    return Boolean(nextPayments[i]) && potPaymentDelta(t) !== null;
+  });
+  for (let i = 0; i < nextTransactions.length; i++) {
+    if (nextApplied[i]) {
+      await applyPotPaymentDelta(nextTransactions[i], 1);
+    }
+  }
+  return nextApplied;
 }
 
 export const runtime = "nodejs";
@@ -147,12 +190,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         nextTxns.push({ from, to, amount });
       }
 
-      // Editing settlements does NOT touch the pot ledger by itself. The
-      // editor may also pass payments[] alongside transactions[] so the user
-      // can toggle paid/unpaid in the same save. POT only updates when the
-      // recon transitions to/from "all settlements paid": at that moment
-      // each non-POT player's snapshot W/L is applied (or reversed) on
-      // their pot ledger entry.
+      // The editor may also pass payments[] alongside transactions[] so the
+      // user can toggle paid/unpaid in the same save. Paid rows involving POT
+      // are applied directly to that player's pot ledger and tracked so edits
+      // can reverse/reapply them safely.
       const prevTxns = existing.snapshot.transactions;
       const prevPayments = existing.payments ?? [];
 
@@ -164,17 +205,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         nextPayments = nextTxns.map((_, i) => Boolean(prevPayments[i]));
       }
 
-      const wasAllPaid =
-        Boolean(existing.potApplied) && isAllPaid(prevTxns, prevPayments);
-      const willBeAllPaid = isAllPaid(nextTxns, nextPayments);
       let nextPotApplied = Boolean(existing.potApplied);
-      if (wasAllPaid && !willBeAllPaid) {
+      if (nextPotApplied) {
         await applySnapshotPotDeltas(existing.snapshot.people, -1);
         nextPotApplied = false;
-      } else if (!wasAllPaid && willBeAllPaid) {
-        await applySnapshotPotDeltas(existing.snapshot.people, 1);
-        nextPotApplied = true;
       }
+      const nextPotPaymentApplied = await syncPotPaymentDeltas({
+        previousTransactions: prevTxns,
+        previousApplied: existing.potPaymentApplied ?? [],
+        nextTransactions: nextTxns,
+        nextPayments,
+      });
 
       const updated = {
         ...existing,
@@ -184,6 +225,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         },
         payments: nextPayments,
         potApplied: nextPotApplied,
+        potPaymentApplied: nextPotPaymentApplied,
       };
       const saved = await replaceReconciliation(params.id, updated);
       if (!saved) {
@@ -213,29 +255,28 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const rawPayments = body.payments as unknown[];
     const txns = existingForPayments.snapshot.transactions;
-    const oldPayments = existingForPayments.payments ?? [];
     const newPayments = txns.map((_, i) => Boolean(rawPayments[i]));
 
-    const wasAllPaid =
-      Boolean(existingForPayments.potApplied) &&
-      isAllPaid(txns, oldPayments);
-    const willBeAllPaid = isAllPaid(txns, newPayments);
     let nextPotApplied = Boolean(existingForPayments.potApplied);
-    if (wasAllPaid && !willBeAllPaid) {
+    if (nextPotApplied) {
       await applySnapshotPotDeltas(
         existingForPayments.snapshot.people,
         -1
       );
       nextPotApplied = false;
-    } else if (!wasAllPaid && willBeAllPaid) {
-      await applySnapshotPotDeltas(existingForPayments.snapshot.people, 1);
-      nextPotApplied = true;
     }
+    const nextPotPaymentApplied = await syncPotPaymentDeltas({
+      previousTransactions: txns,
+      previousApplied: existingForPayments.potPaymentApplied ?? [],
+      nextTransactions: txns,
+      nextPayments: newPayments,
+    });
 
     const updated = await replaceReconciliation(params.id, {
       ...existingForPayments,
       payments: newPayments,
       potApplied: nextPotApplied,
+      potPaymentApplied: nextPotPaymentApplied,
     });
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

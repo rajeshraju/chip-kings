@@ -98,9 +98,8 @@ export function ReconciliationEditor({
         <div className="text-xs text-fg-dim mb-4">
           Add as many settlements as you need — including multiple payments
           between the same two players, or chained routes (A → C → B). Tick
-          the Paid box on a row to mark it settled — POT balances only update
-          when the paid state changes (using the row&apos;s amount at that
-          moment).
+          the Paid box on a row to mark it settled — rows paid from or to POT
+          update that player&apos;s pot balance using the row amount.
         </div>
 
         {/* Editable transaction rows */}
