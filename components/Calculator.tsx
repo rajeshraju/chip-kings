@@ -10,6 +10,7 @@ import { toast } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PromptDialog } from "./PromptDialog";
 import { refreshAfterSuccess } from "@/lib/refresh";
+import { formatLocalIsoDate, isoDateInAppTimeZone } from "@/lib/dates";
 
 function parseIsoDate(s: string): Date | null {
   const parts = s.split("-").map(Number);
@@ -18,16 +19,9 @@ function parseIsoDate(s: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
-function formatIsoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 const DRAFT_KEY = "chip-kings-draft";
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => formatLocalIsoDate(new Date());
 
 type Props = {
   role: Role | null;
@@ -40,6 +34,39 @@ type Props = {
 function parseTitlePlace(title: string): string {
   const match = title.match(/ @ (.+)$/);
   return match ? match[1].trim() : "";
+}
+
+function inferGameDateFromTitle(title: string, fallbackIso: string): string | null {
+  const fallbackYear = Number(fallbackIso.slice(0, 4));
+  const match = title.match(
+    /^\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})\b/i
+  );
+  if (!match || !Number.isFinite(fallbackYear)) return null;
+  const month = [
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+  ].indexOf(match[1].slice(0, 3).toLowerCase());
+  const day = Number(match[2]);
+  if (month < 0 || day < 1 || day > 31) return null;
+  return formatLocalIsoDate(new Date(fallbackYear, month, day));
+}
+
+function reportGameDate(report: Report): string {
+  if (typeof report.gameDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(report.gameDate)) {
+    return report.gameDate;
+  }
+  const fallback = isoDateInAppTimeZone(report.createdAt) || todayIso();
+  return inferGameDateFromTitle(report.title, fallback) ?? fallback;
 }
 
 export function Calculator({
@@ -56,7 +83,7 @@ export function Calculator({
     editingReport ? editingReport.snapshot.people : []
   );
   const [gameDate, setGameDate] = useState<string>(
-    editingReport ? editingReport.createdAt.slice(0, 10) : todayIso()
+    editingReport ? reportGameDate(editingReport) : todayIso()
   );
   const [place, setPlace] = useState<string>(
     editingReport ? parseTitlePlace(editingReport.title) : ""
@@ -323,7 +350,7 @@ export function Calculator({
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, snapshot }),
+        body: JSON.stringify({ title, gameDate, snapshot }),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -368,7 +395,7 @@ export function Calculator({
               <DatePicker
                 id="game-date"
                 selected={parseIsoDate(gameDate)}
-                onChange={(d) => d && setGameDate(formatIsoDate(d))}
+                onChange={(d) => d && setGameDate(formatLocalIsoDate(d))}
                 dateFormat="MMM d, yyyy"
                 className="input cursor-pointer"
                 wrapperClassName="w-full"

@@ -24,6 +24,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     await requireCanWrite();
     const body = (await request.json().catch(() => null)) as {
       title?: string;
+      gameDate?: string;
       snapshot?: CalculationResult;
     } | null;
     if (!body) return NextResponse.json({ error: "Invalid body" }, { status: 400 });

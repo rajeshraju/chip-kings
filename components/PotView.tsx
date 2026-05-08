@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { formatDollar } from "@/lib/calc";
 import type { PotLedgerEntry } from "@/lib/types";
 import { exportElementToPdf } from "@/lib/print";
+import { formatAppDate } from "@/lib/dates";
 
 const PRINT_ID = "pot-print-area";
 
@@ -134,7 +135,7 @@ export function PotView({ entries }: { entries: PotLedgerEntry[] }) {
                       />
                     </div>
                     <div className="text-[10px] text-fg-dim font-mono mt-2">
-                      updated {new Date(e.updatedAt).toLocaleDateString()}
+                      updated {formatAppDate(e.updatedAt)}
                     </div>
                   </div>
                 );

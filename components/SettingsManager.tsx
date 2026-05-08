@@ -57,6 +57,8 @@ export function SettingsManager({
   const [saving, setSaving] = useState(false);
   const [pendingReset, setPendingReset] = useState<ResetTarget | null>(null);
   const [resetting, setResetting] = useState<ResetTarget | null>(null);
+  const [confirmClearCache, setConfirmClearCache] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
 
   // --- Initialize Pot Balances state ---
   const sortedPlayers = useMemo(
@@ -182,6 +184,36 @@ export function SettingsManager({
     } finally {
       setResetting(null);
       setPendingReset(null);
+    }
+  }
+
+  async function clearBrowserCache() {
+    setClearingCache(true);
+    try {
+      if (typeof window !== "undefined") {
+        const localKeys: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && (key.startsWith("chip-kings") || key.startsWith("ck:"))) {
+            localKeys.push(key);
+          }
+        }
+        for (const key of localKeys) window.localStorage.removeItem(key);
+        window.sessionStorage.clear();
+      }
+
+      if (typeof caches !== "undefined") {
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => caches.delete(name)));
+      }
+
+      toast("Browser cache cleared ✓", "success");
+      refreshAfterSuccess();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Clear cache failed", "error");
+    } finally {
+      setClearingCache(false);
+      setConfirmClearCache(false);
     }
   }
 
@@ -366,6 +398,37 @@ export function SettingsManager({
       <div className="card">
         <div className="card-header">
           <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
+            🧽 Clear Cache
+          </h2>
+        </div>
+        <div className="card-body">
+          <div className="rounded-[10px] bg-bg-elevated border border-border p-4 flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🧽</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-display font-semibold text-sm">
+                Browser cache and local state
+              </div>
+              <div className="text-xs text-fg-muted mt-1">
+                Clears this browser&apos;s saved draft, view preferences,
+                legacy paid-check caches, theme preference, session storage,
+                and Cache Storage. Server data is not changed.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-small flex-shrink-0"
+              onClick={() => setConfirmClearCache(true)}
+              disabled={clearingCache}
+            >
+              {clearingCache ? "Clearing…" : "Clear Cache"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="font-display text-[15px] font-semibold flex items-center gap-2.5">
             🧹 Reset Data
           </h2>
         </div>
@@ -408,6 +471,15 @@ export function SettingsManager({
         confirmLabel={savingPot ? "Applying…" : "Apply"}
         onCancel={() => !savingPot && setConfirmInitPot(false)}
         onConfirm={() => initializePot()}
+      />
+
+      <ConfirmDialog
+        open={confirmClearCache}
+        title="Clear browser cache?"
+        message="This clears only browser-local Chip Kings cache and preferences on this device. Saved games, reconciliations, players, settings, and pot balances are not deleted."
+        confirmLabel={clearingCache ? "Clearing…" : "Clear Cache"}
+        onCancel={() => !clearingCache && setConfirmClearCache(false)}
+        onConfirm={clearBrowserCache}
       />
 
       <ConfirmDialog
