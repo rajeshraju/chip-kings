@@ -134,13 +134,14 @@ export async function saveReport(report: Report): Promise<Report> {
 
 export async function updateReport(
   id: string,
-  patch: Partial<Pick<Report, "title" | "snapshot">>
+  patch: Partial<Pick<Report, "title" | "gameDate" | "snapshot">>
 ): Promise<Report | null> {
   const reports = await readAllReports();
   const idx = reports.findIndex((r) => r.id === id);
   if (idx === -1) return null;
   const updated: Report = { ...reports[idx] };
   if (patch.title !== undefined) updated.title = patch.title;
+  if (patch.gameDate !== undefined) updated.gameDate = patch.gameDate;
   if (patch.snapshot !== undefined) updated.snapshot = patch.snapshot;
   reports[idx] = updated;
   await writeAllReports(reports);

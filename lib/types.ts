@@ -26,6 +26,9 @@ export type Report = {
   id: string;
   title: string;
   createdAt: string;
+  // YYYY-MM-DD date the game was played. Kept separate from createdAt so
+  // editing a historical game does not depend on UTC/local timestamp parsing.
+  gameDate?: string;
   createdBy: string;
   snapshot: CalculationResult;
   // Set when the report has been folded into a reconciliation. Archived

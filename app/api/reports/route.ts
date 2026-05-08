@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     const session = await requireCanWrite();
     const body = (await request.json().catch(() => null)) as {
       title?: string;
+      gameDate?: string;
       snapshot?: CalculationResult;
     } | null;
 
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
       id: `r_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       title: (body.title || "Untitled game").slice(0, 120),
       createdAt: new Date().toISOString(),
+      gameDate:
+        typeof body.gameDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.gameDate)
+          ? body.gameDate
+          : undefined,
       createdBy: session.username,
       snapshot: body.snapshot,
     };

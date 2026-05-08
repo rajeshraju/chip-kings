@@ -5,6 +5,7 @@ import { formatDollar } from "@/lib/calc";
 import type { Reconciliation, Transaction } from "@/lib/types";
 import { exportElementToPdf } from "@/lib/print";
 import { toast } from "./Toaster";
+import { formatAppShortDate } from "@/lib/dates";
 
 const PRINT_ID = "payments-print-area";
 
@@ -584,11 +585,7 @@ function ReconCard({
                 </span>
               </div>
               <div className="text-[11px] text-fg-dim font-mono mt-0.5">
-                {new Date(recon.createdAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatAppShortDate(recon.createdAt)}
                 {" · "}
                 {txns.length} settlement{txns.length === 1 ? "" : "s"}
               </div>

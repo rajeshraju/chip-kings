@@ -52,6 +52,10 @@ function validateReport(raw: unknown): Report | null {
       typeof r.createdAt === "string" && r.createdAt
         ? r.createdAt
         : new Date().toISOString(),
+    gameDate:
+      typeof r.gameDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.gameDate)
+        ? r.gameDate
+        : undefined,
     createdBy:
       typeof r.createdBy === "string" && r.createdBy ? r.createdBy : "import",
     snapshot: {

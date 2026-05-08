@@ -10,6 +10,7 @@ import { exportElementToPdf } from "@/lib/print";
 import { refreshAfterSuccess } from "@/lib/refresh";
 import { toast } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { formatAppDate, formatAppDateTime, formatAppShortDate } from "@/lib/dates";
 
 const REPORT_PRINT_ID = "report-modal-print-area";
 const RECON_PRINT_ID = "recon-modal-print-area";
@@ -543,7 +544,7 @@ export function ReportsView({
           }
         >
           <div className="text-xs text-fg-dim font-mono mb-4">
-            {new Date(openReport.createdAt).toLocaleString()}
+            {formatAppDateTime(openReport.createdAt)}
             {" · "}
             {openReport.createdBy}
           </div>
@@ -586,7 +587,7 @@ export function ReportsView({
           }
         >
           <div className="text-xs text-fg-dim font-mono mb-4">
-            {new Date(openRecon.createdAt).toLocaleString()}
+            {formatAppDateTime(openRecon.createdAt)}
             {" · "}
             {openRecon.createdBy}
           </div>
@@ -607,7 +608,7 @@ export function ReportsView({
                 ✓ Completed
                 {openRecon.completedBy ? ` by ${openRecon.completedBy}` : ""}
                 {openRecon.completedAt
-                  ? ` on ${new Date(openRecon.completedAt).toLocaleDateString()}`
+                  ? ` on ${formatAppShortDate(openRecon.completedAt)}`
                   : ""}
               </span>
               <span className="text-xs font-mono">read-only</span>
@@ -786,13 +787,7 @@ function ReportCard({
               {report.title}
             </div>
             <div className="text-xs text-fg-dim font-mono mt-0.5">
-              {new Date(report.createdAt).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {formatAppDateTime(report.createdAt)}
               {" · "}
               {report.createdBy}
             </div>
@@ -854,13 +849,7 @@ function ArchivedReportCard({
               </span>
             </div>
             <div className="text-xs text-fg-dim font-mono mt-0.5">
-              {new Date(report.createdAt).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {formatAppDateTime(report.createdAt)}
               {" · "}
               {report.createdBy}
             </div>
@@ -921,13 +910,7 @@ function ReconciliationCard({
           )}
         </div>
         <div className="text-xs text-fg-dim font-mono mt-0.5">
-          {new Date(recon.createdAt).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+          {formatAppDateTime(recon.createdAt)}
           {" · "}
           {recon.createdBy}
         </div>
@@ -1103,14 +1086,7 @@ function PerPlayerBreakdown({ recon }: { recon: Reconciliation }) {
                         </div>
                         <div className="text-[11px] text-fg-dim font-mono mt-0.5 flex flex-wrap gap-2">
                           <span>
-                            {new Date(report.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              }
-                            )}
+                            {formatAppShortDate(report.createdAt)}
                           </span>
                           {showChips && (
                             <span>

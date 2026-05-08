@@ -7,6 +7,7 @@ import { ViewToggle, type AdminView } from "./ViewToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PencilIcon, XIcon } from "./icons";
 import { refreshAfterSuccess } from "@/lib/refresh";
+import { formatAppDate } from "@/lib/dates";
 
 type Props = {
   initialPlayers: Player[];
@@ -301,7 +302,7 @@ function PlayerRosterRow({
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-fg-muted font-mono mt-1">
             <span className="chip chip-neutral">
-              added {new Date(player.createdAt).toLocaleDateString()}
+              added {formatAppDate(player.createdAt)}
             </span>
           </div>
         </div>
