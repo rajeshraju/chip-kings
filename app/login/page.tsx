@@ -19,7 +19,7 @@ export default async function LoginPage({
         <div className="card-body pt-6 pb-5 space-y-1">
           <h1 className="font-display text-xl font-bold">Sign in</h1>
           <p className="text-sm text-fg-muted">
-            Reports are view-restricted. Enter your credentials to continue.
+            Games, reports, and admin pages are restricted. Enter your credentials to continue.
           </p>
         </div>
         <div className="card-body">

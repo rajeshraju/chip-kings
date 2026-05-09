@@ -12,22 +12,19 @@ export async function middleware(request: NextRequest) {
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = token ? await readSessionFromToken(token) : null;
+  const homeUrl = new URL("/", request.url);
 
   if (!session) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(homeUrl);
   }
 
   // Admin-only routes
   if (pathname.startsWith("/admin") && session.role !== "admin") {
-    const homeUrl = new URL("/", request.url);
     return NextResponse.redirect(homeUrl);
   }
 
   // Reports: editor + admin only (no viewers)
   if (pathname.startsWith("/reports") && session.role === "viewer") {
-    const homeUrl = new URL("/", request.url);
     return NextResponse.redirect(homeUrl);
   }
 

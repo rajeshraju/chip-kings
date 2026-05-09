@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
   const session = await getSession();
-  if (!session) redirect("/login?next=/reports");
+  if (!session) redirect("/");
   if (session.role === "viewer") redirect("/");
 
   const [reports, reconciliations, potEntries] = await Promise.all([
