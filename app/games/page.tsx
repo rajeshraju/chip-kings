@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function GamesPage() {
   const session = await getSession();
-  if (!session) redirect("/login?next=/games");
+  if (!session) redirect("/");
 
   const reconciliations = await listReconciliations();
 

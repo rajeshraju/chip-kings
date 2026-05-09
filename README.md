@@ -1,6 +1,6 @@
 # Chip Kings
 
-Poker settlement calculator with saved games, reconciliations, a running pot ledger, and a view-restricted archive. Next.js + Tailwind, deployed on Vercel with Vercel Blob for persistent storage.
+Poker settlement calculator with saved games, reconciliations, a running pot ledger, and role-gated reporting. Next.js + Tailwind, deployed on Vercel with Vercel Blob for persistent storage.
 
 ## Features
 
@@ -110,7 +110,7 @@ public/
 
 - Login hits `/api/auth/login`, which bcrypt-compares against the stored user (seeding the first admin from env vars if the user store is empty).
 - On success, a `jose`-signed JWT is set as an httpOnly cookie (`ck_session`, SameSite=Lax, Secure in prod, 7-day TTL). The payload carries `userId`, `username`, and `role`.
-- `middleware.ts` (Edge) verifies the JWT on `/games/*`, `/reports/*`, and `/admin/*` and redirects unauth users to `/login?next=…`. `/admin/*` requires `role === "admin"`; `/reports/*` is limited to editors and admins.
+- `middleware.ts` (Edge) verifies the JWT on `/games/*`, `/reports/*`, and `/admin/*` and redirects unsigned users to `/`. `/admin/*` requires `role === "admin"`; `/reports/*` is limited to editors and admins.
 - API routes re-verify in the Node runtime via `getSession()`, which re-reads the user from the store on each request (so deletions / role changes take effect immediately, without waiting for the JWT to expire).
 - `requireCanWrite()` and `requireAdmin()` helpers gate write / admin API routes with a typed `AuthError`.
 
