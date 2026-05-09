@@ -1,11 +1,8 @@
 import { getSession } from "@/lib/auth";
-import {
-  listReports,
-  saveReport,
-  syncReportArchiveFlags,
-} from "@/lib/storage";
+import { listReports } from "@/lib/storage";
 import { listReconciliations } from "@/lib/reconciliations";
-import { ReportsView } from "@/components/ReportsView";
+import { listPotLedger } from "@/lib/pot";
+import { ReportTabs } from "@/components/ReportTabs";
 import type { Report } from "@/lib/types";
 import { redirect } from "next/navigation";
 
@@ -14,45 +11,40 @@ export const dynamic = "force-dynamic";
 export default async function ReportsPage() {
   const session = await getSession();
   if (!session) redirect("/login?next=/reports");
+  if (session.role === "viewer") redirect("/");
 
-  const reconciliations = await listReconciliations();
+  const [reports, reconciliations, potEntries] = await Promise.all([
+    listReports({ includeArchived: true }),
+    listReconciliations(),
+    listPotLedger(),
+  ]);
 
-  // Build the master set of game ids that appear in any reconciliation.
-  // Anything in this set should be archived; anything outside it should not.
-  const reconciledIds = new Set<string>();
-  for (const recon of reconciliations) {
-    for (const id of recon.reportIds) reconciledIds.add(id);
-    for (const src of recon.sourceReports ?? []) reconciledIds.add(src.id);
-  }
+  // Archived games live in `reports` directly. For legacy reconciliations
+  // whose sources were hard-deleted before archiving was introduced, fall
+  // back to the embedded sourceReports / snapshot so YTD totals stay stable.
+  const knownIds = new Set(reports.map((r) => r.id));
+  const fromReconciled: Report[] = reconciliations.flatMap((r) => {
+    const srcs =
+      r.sourceReports && r.sourceReports.length > 0
+        ? r.sourceReports
+        : [
+            {
+              id: r.id,
+              title: r.title,
+              createdAt: r.createdAt,
+              createdBy: r.createdBy,
+              snapshot: r.snapshot,
+            },
+          ];
+    return srcs.filter((s) => !knownIds.has(s.id));
+  });
 
-  // Legacy reconciliations hard-deleted their source games. Fold those
-  // sourceReports into games.json as archived so they show up under the
-  // Archived Games section. Idempotent — only adds reports we don't have.
-  const known = await listReports({ includeArchived: true });
-  const knownIds = new Set(known.map((r) => r.id));
-  for (const recon of reconciliations) {
-    for (const src of recon.sourceReports ?? []) {
-      if (knownIds.has(src.id)) continue;
-      await saveReport({
-        ...src,
-        archived: true,
-        archivedAt: recon.createdAt,
-      });
-      knownIds.add(src.id);
-    }
-  }
-
-  // Make sure every game's archived flag agrees with the reconciliation set.
-  await syncReportArchiveFlags(reconciledIds);
-
-  const all = await listReports({ includeArchived: true });
-  const reports = all.filter((r) => !r.archived);
-  const archivedReports: Report[] = all.filter((r) => r.archived);
+  const allReports = [...reports, ...fromReconciled];
   return (
-    <ReportsView
-      initialReports={reports}
-      initialArchivedReports={archivedReports}
-      initialReconciliations={reconciliations}
+    <ReportTabs
+      reports={allReports}
+      potEntries={potEntries}
+      reconciliations={reconciliations}
       role={session.role}
     />
   );

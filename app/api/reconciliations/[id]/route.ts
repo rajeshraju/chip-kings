@@ -123,7 +123,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       const allPaid = txns.every((_, i) => Boolean(existing.payments?.[i]));
       if (!allPaid) {
         return NextResponse.json(
-          { error: "Cannot complete: some settlements are still outstanding" },
+          { error: "Cannot complete: all payments must be settled first" },
           { status: 400 }
         );
       }

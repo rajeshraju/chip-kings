@@ -108,6 +108,32 @@ export function ReportsView({
     }
   }
 
+  async function restoreArchivedReport(id: string) {
+    try {
+      const res = await fetch(`/api/reports/${id}/restore`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        report?: Report;
+        error?: string;
+      };
+      if (!res.ok || !data.report) {
+        throw new Error(data.error || "Move failed");
+      }
+      setArchivedReports((prev) => prev.filter((r) => r.id !== id));
+      setReports((prev) =>
+        [data.report!, ...prev].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
+      toast("Moved to Saved Games ✓", "success");
+      refreshAfterSuccess();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Move failed", "error");
+    }
+  }
+
   async function completeReconciliation(id: string) {
     try {
       const res = await fetch(`/api/reconciliations/${id}`, {
@@ -473,22 +499,27 @@ export function ReportsView({
           {showArchived && (
             <div className="card-body">
               <div className="text-xs text-fg-dim mb-3">
-                Games that have been folded into a reconciliation. Restore by
-                undoing the parent reconciliation.
+                Games folded into a reconciliation stay archived. Archived
+                games with no reconciliation can be moved back to Saved Games.
               </div>
               <div className="space-y-3">
                 {archivedReports.map((r) => {
                   const parent = reconciliations.find((rec) =>
-                    rec.reportIds.includes(r.id)
+                    rec.reportIds.includes(r.id) ||
+                    Boolean(rec.sourceReports?.some((src) => src.id === r.id))
                   );
                   return (
                     <ArchivedReportCard
                       key={r.id}
                       report={r}
                       parent={parent}
+                      canWrite={canWrite}
                       onView={() => setOpenReportId(r.id)}
                       onOpenParent={
                         parent ? () => setOpenReconId(parent.id) : undefined
+                      }
+                      onRestore={
+                        !parent ? () => restoreArchivedReport(r.id) : undefined
                       }
                     />
                   );
@@ -611,7 +642,7 @@ export function ReportsView({
                   ? ` on ${formatAppShortDate(openRecon.completedAt)}`
                   : ""}
               </span>
-              <span className="text-xs font-mono">read-only</span>
+              <span className="text-xs font-mono">read-only · cannot undo</span>
             </div>
           )}
 
@@ -652,8 +683,8 @@ export function ReportsView({
                     disabled={!allPaid}
                     title={
                       allPaid
-                        ? "Lock this reconciliation as completed (read-only)"
-                        : "All settlements must be paid before completing"
+                        ? "Lock this reconciliation as completed. Completed reconciliations cannot be undone."
+                        : "All payments must be settled before completing"
                     }
                   >
                     ✓ COMPLETE
@@ -828,13 +859,17 @@ function ReportCard({
 function ArchivedReportCard({
   report,
   parent,
+  canWrite,
   onView,
   onOpenParent,
+  onRestore,
 }: {
   report: Report;
   parent?: Reconciliation;
+  canWrite: boolean;
   onView: () => void;
   onOpenParent?: () => void;
+  onRestore?: () => void;
 }) {
   const s = report.snapshot;
   return (
@@ -875,6 +910,11 @@ function ArchivedReportCard({
               onClick={onOpenParent}
             >
               ⚖ Open reconciliation
+            </button>
+          )}
+          {canWrite && onRestore && (
+            <button className="btn btn-secondary btn-small" onClick={onRestore}>
+              ↩ Move to Saved
             </button>
           )}
         </div>

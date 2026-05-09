@@ -367,7 +367,7 @@ export function Calculator({
       }
       toast(isEditing ? "Game updated ✓" : "Game saved ✓", "success");
       if (isEditing) {
-        window.location.href = "/reports";
+        window.location.href = "/games";
       } else {
         refreshAfterSuccess();
       }
@@ -385,7 +385,7 @@ export function Calculator({
           <span>
             ✏️ Editing <strong>{editingReport.title}</strong>
           </span>
-          <a href="/reports" className="btn btn-ghost btn-small">
+          <a href="/games" className="btn btn-ghost btn-small">
             Cancel
           </a>
         </div>
