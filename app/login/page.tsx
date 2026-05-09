@@ -10,7 +10,7 @@ export default async function LoginPage({
   searchParams: { next?: string };
 }) {
   const session = await getSession();
-  const next = searchParams.next || "/reports";
+  const next = searchParams.next || "/games";
   if (session) redirect(next);
 
   return (

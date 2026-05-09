@@ -5,9 +5,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const needsAuth =
+    pathname.startsWith("/games") ||
     pathname.startsWith("/reports") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/ytd");
+    pathname.startsWith("/admin");
   if (!needsAuth) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -25,8 +25,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
-  // YTD: editor + admin only (no viewers)
-  if (pathname.startsWith("/ytd") && session.role === "viewer") {
+  // Reports: editor + admin only (no viewers)
+  if (pathname.startsWith("/reports") && session.role === "viewer") {
     const homeUrl = new URL("/", request.url);
     return NextResponse.redirect(homeUrl);
   }
@@ -35,5 +35,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/reports/:path*", "/admin/:path*", "/ytd/:path*"],
+  matcher: ["/games/:path*", "/reports/:path*", "/admin/:path*"],
 };

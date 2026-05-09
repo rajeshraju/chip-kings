@@ -34,8 +34,8 @@ export function Nav() {
   const canWrite = user?.role === "admin" || user?.role === "editor";
   const tabs: { href: string; label: string; emoji: string; hidden?: boolean }[] = [
     { href: "/", label: "Session", emoji: "🎲" },
-    { href: "/reports", label: "Games", emoji: "🃏", hidden: !user },
-    { href: "/ytd", label: "Report", emoji: "♦️", hidden: !canWrite },
+    { href: "/games", label: "Games", emoji: "🃏", hidden: !user },
+    { href: "/reports", label: "Report", emoji: "♦️", hidden: !canWrite },
     { href: "/admin", label: "Admin", emoji: "♣️", hidden: user?.role !== "admin" },
   ];
 

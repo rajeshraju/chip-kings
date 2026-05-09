@@ -7,9 +7,9 @@ Poker settlement calculator with saved games, reconciliations, a running pot led
 - **Settlement calculator** (public) — add players, chips taken/left, winnings/losses, and expenses
 - **Game dates** — games persist an explicit `gameDate` so editing historical games does not depend on UTC timestamp parsing
 - **POT handling** — dedicated POT row with auto-aggregated player expenses and a running per-player pot ledger
-- **Reports** (auth-gated) — save games to a persistent archive; view, edit, delete, import/export JSON, and export PDFs
-- **Reconciliations** — combine saved games into settlement instructions; track paid rows and update pot balances for payments from/to POT
-- **YTD / Payments / Pot views** — period summaries, outstanding payment tracking, and pot ledger reporting
+- **Games** (`/games`, auth-gated) — save games to a persistent archive; view, edit, delete, import/export JSON, and export PDFs
+- **Reconciliations** — combine saved games into settlement instructions; track paid rows and update pot balances for payments from/to POT. Completion requires every payment to be settled; completed reconciliations are read-only and cannot be undone.
+- **Reports** (`/reports`, editor/admin) — YTD summaries, outstanding payment tracking, and pot ledger reporting
 - **Role-based auth** — admin / editor / viewer roles; first admin seeded from env vars
 - **Admin panel** (`/admin`) — manage users, players, game defaults, initial pot balances, browser cache, and reset data files
 - **Dark / light theme** — header toggle, persisted in browser storage
@@ -29,17 +29,17 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The calculator is public. Visit `/login` and then `/reports` to access the archive. First-time use: the admin account is seeded from the `AUTH_USERNAME` / `AUTH_PASSWORD_HASH` env vars on first login; after that, manage users at `/admin`.
+The calculator is public. Visit `/login` and then `/games` to access the saved game archive. First-time use: the admin account is seeded from the `AUTH_USERNAME` / `AUTH_PASSWORD_HASH` env vars on first login; after that, manage users at `/admin`.
 
 ## Roles
 
-| Role | Calculator | Save games | View reports | Edit/delete reports | Admin settings |
-| --- | --- | --- | --- | --- | --- |
-| **admin** | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **editor** | ✓ | ✓ | ✓ | ✓ | — |
-| **viewer** | ✓ | — | ✓ | — | — |
+| Role | Calculator | Save games | View games | View reports | Edit/delete games | Admin settings |
+| --- | --- | --- | --- | --- | --- | --- |
+| **admin** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **editor** | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| **viewer** | ✓ | — | ✓ | — | — | — |
 
-The calculator itself is public (anyone can run numbers locally). Roles only gate report persistence and user management.
+The calculator itself is public (anyone can run numbers locally). Roles gate game persistence, report access, and user management.
 
 ## Environment variables
 
@@ -60,7 +60,7 @@ After the first admin user is created in the user store, `AUTH_USERNAME` / `AUTH
 2. On [vercel.com](https://vercel.com), **Add New → Project** and import the repo. Next.js is auto-detected.
 3. **Storage** tab → **Create Database** → **Blob**. Attach to this project. This populates `BLOB_READ_WRITE_TOKEN` automatically.
 4. **Settings → Environment Variables** → add `AUTH_USERNAME`, `AUTH_PASSWORD_HASH`, `AUTH_JWT_SECRET`.
-5. Redeploy. The archive at `/reports` is now gated; the calculator at `/` remains public.
+5. Redeploy. The game archive at `/games` is now gated; the calculator at `/` remains public.
 
 ## Architecture
 
@@ -68,8 +68,8 @@ After the first admin user is created in the user store, `AUTH_USERNAME` / `AUTH
 app/
   page.tsx               Calculator (public; role passed if signed in)
   login/page.tsx         Login form
-  reports/page.tsx       Reports, payments, pot ledger (gated; any role can read)
-  ytd/page.tsx           Year / quarter / month summaries (gated)
+  games/page.tsx         Saved/archived games + reconciliations (gated; any role can read)
+  reports/page.tsx       Reports, payments, pot ledger (gated; editor/admin)
   admin/page.tsx         Users, players, settings, cache, resets (admin only)
   api/auth/…             login, logout, me
   api/reports/…          list/create/update/delete games; import JSON
@@ -101,7 +101,7 @@ lib/
   pot.ts                 Pot ledger store (local FS / Vercel Blob)
   settings.ts            Admin settings store (local FS / Vercel Blob)
   types.ts               Shared types incl. Role + ROLE_PERMISSIONS
-middleware.ts            Edge middleware: guards /reports/*, /ytd/*, /admin/*
+middleware.ts            Edge middleware: guards /games/*, /reports/*, /admin/*
 public/
   legacy.html            The original single-file app, preserved at /legacy.html
 ```
@@ -110,7 +110,7 @@ public/
 
 - Login hits `/api/auth/login`, which bcrypt-compares against the stored user (seeding the first admin from env vars if the user store is empty).
 - On success, a `jose`-signed JWT is set as an httpOnly cookie (`ck_session`, SameSite=Lax, Secure in prod, 7-day TTL). The payload carries `userId`, `username`, and `role`.
-- `middleware.ts` (Edge) verifies the JWT on `/reports/*`, `/ytd/*`, and `/admin/*` and redirects unauth users to `/login?next=…`. `/admin/*` also requires `role === "admin"`.
+- `middleware.ts` (Edge) verifies the JWT on `/games/*`, `/reports/*`, and `/admin/*` and redirects unauth users to `/login?next=…`. `/admin/*` requires `role === "admin"`; `/reports/*` is limited to editors and admins.
 - API routes re-verify in the Node runtime via `getSession()`, which re-reads the user from the store on each request (so deletions / role changes take effect immediately, without waiting for the JWT to expire).
 - `requireCanWrite()` and `requireAdmin()` helpers gate write / admin API routes with a typed `AuthError`.
 

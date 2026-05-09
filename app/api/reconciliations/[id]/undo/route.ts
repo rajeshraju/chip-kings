@@ -3,8 +3,14 @@ import { AuthError, requireCanWrite } from "@/lib/auth";
 import {
   deleteReconciliation,
   getReconciliation,
+  listReconciliations,
 } from "@/lib/reconciliations";
-import { getReport, saveReport, unarchiveReport } from "@/lib/storage";
+import {
+  getReport,
+  saveReport,
+  syncReportArchiveFlags,
+  unarchiveReport,
+} from "@/lib/storage";
 import { adjustPotEntry } from "@/lib/pot";
 import { isPot, netForPerson, roundToDollar } from "@/lib/calc";
 
@@ -106,6 +112,16 @@ export async function POST(
     // Remove the reconciliation record. Its payments[] is part of the record
     // and is dropped with it, so no payment state survives the undo.
     await deleteReconciliation(params.id);
+
+    // Make the games from the undone reconciliation active again. If any game
+    // is still referenced by another reconciliation, keep it archived.
+    const remainingReconciliations = await listReconciliations();
+    const stillReconciledIds = new Set<string>();
+    for (const item of remainingReconciliations) {
+      for (const id of item.reportIds) stillReconciledIds.add(id);
+      for (const src of item.sourceReports ?? []) stillReconciledIds.add(src.id);
+    }
+    await syncReportArchiveFlags(stillReconciledIds);
 
     return NextResponse.json({
       ok: true,
